@@ -26,11 +26,13 @@ where
         ConnectionHandle { requests_tx }
     }
 
-    /// Send a new request and get the response as a stream of messages. Note that some messages
-    /// are not part of the response stream:
+    /// Send a new request and get the response as a stream of messages. Note
+    /// that some messages are not part of the response stream:
     ///
-    /// - **acknowledgements**: when an acknowledgement is received, the stream is closed
-    /// - **end of dump messages**: similarly, upon receiving an "end of dump" message, the stream is
+    /// - **acknowledgements**: when an acknowledgement is received, the stream
+    ///   is closed
+    /// - **end of dump messages**: similarly, upon receiving an "end of dump"
+    ///   message, the stream is
     /// closed
     pub fn request(
         &mut self,

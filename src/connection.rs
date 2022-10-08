@@ -9,25 +9,18 @@ use std::{
 
 use futures::{
     channel::mpsc::{UnboundedReceiver, UnboundedSender},
-    Future,
-    Sink,
-    Stream,
+    Future, Sink, Stream,
 };
 use log::{error, warn};
 use netlink_packet_core::{
-    NetlinkDeserializable,
-    NetlinkMessage,
-    NetlinkPayload,
-    NetlinkSerializable,
+    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
 };
 
 use crate::{
     codecs::{NetlinkCodec, NetlinkMessageCodec},
     framed::NetlinkFramed,
     sys::{AsyncSocket, SocketAddr},
-    Protocol,
-    Request,
-    Response,
+    Protocol, Request, Response,
 };
 
 #[cfg(feature = "tokio_socket")]
@@ -37,8 +30,9 @@ type DefaultSocket = ();
 
 /// Connection to a Netlink socket, running in the background.
 ///
-/// [`ConnectionHandle`](struct.ConnectionHandle.html) are used to pass new requests to the
-/// `Connection`, that in turn, sends them through the netlink socket.
+/// [`ConnectionHandle`](struct.ConnectionHandle.html) are used to pass new
+/// requests to the `Connection`, that in turn, sends them through the netlink
+/// socket.
 pub struct Connection<T, S = DefaultSocket, C = NetlinkCodec>
 where
     T: Debug + NetlinkSerializable + NetlinkDeserializable,
@@ -50,8 +44,8 @@ where
     /// Channel used by the user to pass requests to the connection.
     requests_rx: Option<UnboundedReceiver<Request<T>>>,
 
-    /// Channel used to transmit to the ConnectionHandle the unsolicited messages received from the
-    /// socket (multicast messages for instance).
+    /// Channel used to transmit to the ConnectionHandle the unsolicited
+    /// messages received from the socket (multicast messages for instance).
     unsolicited_messages_tx: Option<UnboundedSender<(NetlinkMessage<T>, SocketAddr)>>,
 
     socket_closed: bool,
