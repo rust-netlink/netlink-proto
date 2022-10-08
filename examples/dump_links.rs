@@ -2,12 +2,7 @@
 
 use futures::StreamExt;
 use netlink_packet_route::{
-    LinkMessage,
-    NetlinkHeader,
-    NetlinkMessage,
-    RtnlMessage,
-    NLM_F_DUMP,
-    NLM_F_REQUEST,
+    LinkMessage, NetlinkHeader, NetlinkMessage, RtnlMessage, NLM_F_DUMP, NLM_F_REQUEST,
 };
 use netlink_proto::{
     new_connection,
@@ -39,12 +34,8 @@ async fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to send request: {}", e))?;
 
     // Print all the messages received in response
-    loop {
-        if let Some(packet) = response.next().await {
-            println!("<<< {:?}", packet);
-        } else {
-            break;
-        }
+    while let Some(packet) = response.next().await {
+        println!("<<< {:?}", packet);
     }
 
     Ok(())

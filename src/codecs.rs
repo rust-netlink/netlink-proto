@@ -4,21 +4,18 @@ use std::{fmt::Debug, io};
 
 use bytes::{BufMut, BytesMut};
 use netlink_packet_core::{
-    NetlinkBuffer,
-    NetlinkDeserializable,
-    NetlinkMessage,
-    NetlinkSerializable,
+    NetlinkBuffer, NetlinkDeserializable, NetlinkMessage, NetlinkSerializable,
 };
 
 /// Protocol to serialize and deserialize messages to and from datagrams
 ///
-/// This is separate from `tokio_util::codec::{Decoder, Encoder}` as the implementations
-/// rely on the buffer containing full datagrams; they won't work well with simple
-/// bytestreams.
+/// This is separate from `tokio_util::codec::{Decoder, Encoder}` as the
+/// implementations rely on the buffer containing full datagrams; they won't
+/// work well with simple bytestreams.
 ///
 /// Officially there should be exactly one implementation of this, but the audit
-/// subsystem ignores way too many rules of the protocol, so they need a separate
-/// implementation.
+/// subsystem ignores way too many rules of the protocol, so they need a
+/// separate implementation.
 ///
 /// Although one could make a tighter binding between `NetlinkMessageCodec` and
 /// the message types (NetlinkDeserializable+NetlinkSerializable) it can handle,
@@ -91,7 +88,8 @@ impl NetlinkMessageCodec for NetlinkCodec {
                 }
                 Err(e) => {
                     error!("failed to decode packet {:#x?}: {}", &bytes, e);
-                    // continue looping, there may be more datagrams in the buffer
+                    // continue looping, there may be more datagrams in the
+                    // buffer
                 }
             }
         }

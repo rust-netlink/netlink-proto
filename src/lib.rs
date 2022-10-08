@@ -203,21 +203,23 @@ pub mod sys {
     pub use netlink_sys::SmolSocket;
 }
 
-/// Create a new Netlink connection for the given Netlink protocol, and returns a handle to that
-/// connection as well as a stream of unsolicited messages received by that connection (unsolicited
-/// here means messages that are not a response to a request made by the `Connection`).
-/// `Connection<T>` wraps a Netlink socket and implements the Netlink protocol.
+/// Create a new Netlink connection for the given Netlink protocol, and returns
+/// a handle to that connection as well as a stream of unsolicited messages
+/// received by that connection (unsolicited here means messages that are not a
+/// response to a request made by the `Connection`). `Connection<T>` wraps a
+/// Netlink socket and implements the Netlink protocol.
 ///
 /// `protocol` must be one of the [`crate::sys::protocols`][protos] constants.
 ///
-/// `T` is the type of netlink messages used for this protocol. For instance, if you're using the
-/// `NETLINK_AUDIT` protocol with the `netlink-packet-audit` crate, `T` will be
-/// `netlink_packet_audit::AuditMessage`. More generally, `T` is anything that can be serialized
-/// and deserialized into a Netlink message. See the `netlink_packet_core` documentation for
-/// details about the `NetlinkSerializable` and `NetlinkDeserializable` traits.
+/// `T` is the type of netlink messages used for this protocol. For instance, if
+/// you're using the `NETLINK_AUDIT` protocol with the `netlink-packet-audit`
+/// crate, `T` will be `netlink_packet_audit::AuditMessage`. More generally, `T`
+/// is anything that can be serialized and deserialized into a Netlink message.
+/// See the `netlink_packet_core` documentation for details about the
+/// `NetlinkSerializable` and `NetlinkDeserializable` traits.
 ///
-/// Most of the time, users will want to spawn the `Connection` on an async runtime, and use the
-/// handle to send messages.
+/// Most of the time, users will want to spawn the `Connection` on an async
+/// runtime, and use the handle to send messages.
 ///
 /// [protos]: crate::sys::protocols
 #[cfg(feature = "tokio_socket")]
@@ -235,7 +237,8 @@ where
     new_connection_with_codec(protocol)
 }
 
-/// Variant of [`new_connection`] that allows specifying a socket type to use for async handling
+/// Variant of [`new_connection`] that allows specifying a socket type to use
+/// for async handling
 #[allow(clippy::type_complexity)]
 pub fn new_connection_with_socket<T, S>(
     protocol: isize,
@@ -251,7 +254,8 @@ where
     new_connection_with_codec(protocol)
 }
 
-/// Variant of [`new_connection`] that allows specifying a socket type to use for async handling and a special codec
+/// Variant of [`new_connection`] that allows specifying a socket type to use
+/// for async handling and a special codec
 #[allow(clippy::type_complexity)]
 pub fn new_connection_with_codec<T, S, C>(
     protocol: isize,

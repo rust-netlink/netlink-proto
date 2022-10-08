@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-// This example shows how to use `netlink-proto` with the tokio runtime to print audit events.
+// This example shows how to use `netlink-proto` with the tokio runtime to print
+// audit events.
 //
 // This example shows how the netlink socket can be accessed
 // `netlink_proto::Connection`, and configured (in this case to
@@ -22,12 +23,7 @@
 
 use futures::stream::StreamExt;
 use netlink_packet_audit::{
-    AuditMessage,
-    NetlinkMessage,
-    NetlinkPayload,
-    StatusMessage,
-    NLM_F_ACK,
-    NLM_F_REQUEST,
+    AuditMessage, NetlinkMessage, NetlinkPayload, StatusMessage, NLM_F_ACK, NLM_F_REQUEST,
 };
 use std::process;
 
@@ -43,17 +39,15 @@ const AUDIT_STATUS_PID: u32 = 4;
 async fn main() -> Result<(), String> {
     // Create a netlink socket. Here:
     //
-    // - `conn` is a `Connection` that has the netlink socket. It's a
-    //   `Future` that keeps polling the socket and must be spawned an
-    //   the event loop.
+    // - `conn` is a `Connection` that has the netlink socket. It's a `Future` that
+    //   keeps polling the socket and must be spawned an the event loop.
     //
-    // - `handle` is a `Handle` to the `Connection`. We use it to send
-    //   netlink messages and receive responses to these messages.
+    // - `handle` is a `Handle` to the `Connection`. We use it to send netlink
+    //   messages and receive responses to these messages.
     //
-    // - `messages` is a channel receiver through which we receive
-    //   messages that we have not sollicated, ie that are not
-    //   response to a request we made. In this example, we'll receive
-    //   the audit event through that channel.
+    // - `messages` is a channel receiver through which we receive messages that we
+    //   have not sollicated, ie that are not response to a request we made. In this
+    //   example, we'll receive the audit event through that channel.
     let (conn, mut handle, mut messages) = new_connection(NETLINK_AUDIT)
         .map_err(|e| format!("Failed to create a new netlink connection: {}", e))?;
 

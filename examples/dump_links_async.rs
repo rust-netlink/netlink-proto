@@ -2,12 +2,7 @@
 
 use futures::StreamExt;
 use netlink_packet_route::{
-    LinkMessage,
-    NetlinkHeader,
-    NetlinkMessage,
-    RtnlMessage,
-    NLM_F_DUMP,
-    NLM_F_REQUEST,
+    LinkMessage, NetlinkHeader, NetlinkMessage, RtnlMessage, NLM_F_DUMP, NLM_F_REQUEST,
 };
 use netlink_proto::{
     new_connection,
