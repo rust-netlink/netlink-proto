@@ -2,11 +2,7 @@
 
 use bytes::BytesMut;
 use std::{
-    fmt::Debug,
-    io,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
+    fmt::Debug, io, marker::PhantomData, mem::size_of, pin::Pin, task::{Context, Poll}
 };
 
 use futures::{Sink, Stream};
@@ -17,8 +13,12 @@ use crate::{
     sys::{AsyncSocket, SocketAddr},
 };
 use netlink_packet_core::{
-    NetlinkDeserializable, NetlinkMessage, NetlinkSerializable,
+    NetlinkDeserializable, NetlinkMessage, NetlinkSerializable, NetlinkHeader,
+    NLMSG_OVERRUN, NetlinkPayload,
 };
+
+/// Buffer overrun condition
+const ENOBUFS: i32 = 105;
 
 pub struct NetlinkFramed<T, S, C> {
     socket: S,
@@ -68,6 +68,26 @@ where
 
             *in_addr = match ready!(socket.poll_recv_from(cx, reader)) {
                 Ok(addr) => addr,
+                // When receiving messages in multicast mode (i.e. we subscribed to
+                // notifications), the kernel will not wait for us to read datagrams before
+                // sending more. The receive buffer has a finite size, so once it is full (no
+                // more message can fit in), new messages will be dropped and recv calls will
+                // return `ENOBUFS`.
+                // This needs to be handled for applications to resynchronize with the contents
+                // of the kernel if necessary.
+                // We don't need to do anything special:
+                // - contents of the reader is still valid because we won't have partial messages
+                //   in there anyways (large enough buffer)
+                // - contents of the socket's internal buffer is still valid because the kernel
+                //   won't put partial data in it
+                Err(e) if e.raw_os_error() == Some(ENOBUFS) => {
+                    warn!("netlink socket buffer full");
+                    let mut hdr = NetlinkHeader::default();
+                    hdr.length = size_of::<NetlinkHeader>() as u32;
+                    hdr.message_type = NLMSG_OVERRUN;
+                    let msg = NetlinkMessage::new(hdr, NetlinkPayload::Overrun(Vec::new()));
+                    return Poll::Ready(Some((msg, SocketAddr::new(0, 0))));
+                }
                 Err(e) => {
                     error!("failed to read from netlink socket: {:?}", e);
                     return Poll::Ready(None);
