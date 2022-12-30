@@ -216,18 +216,7 @@ where
             if done {
                 use NetlinkPayload::*;
                 match &message.payload {
-                    // Since `self.protocol` set the `done` flag here,
-                    // we know it has already dropped the request and
-                    // its associated metadata, ie the UnboundedSender
-                    // used to forward messages back to the
-                    // ConnectionHandle. By just continuing we're
-                    // dropping the last instance of that sender,
-                    // hence closing the channel and signaling the
-                    // handle that no more messages are expected.
-                    Noop | Done | Ack(_) => {
-                        trace!("not forwarding Noop/Ack/Done message to the handle");
-                        continue;
-                    }
+                    Noop | Done | Ack(_) => {}
                     // I'm not sure how we should handle overrun messages
                     Overrun(_) => unimplemented!("overrun is not handled yet"),
                     // We need to forward error messages and messages
