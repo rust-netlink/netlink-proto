@@ -191,7 +191,7 @@ pub use crate::handle::*;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::{fmt::Debug, io};
 
-pub use netlink_packet_core as packet;
+pub(crate) use netlink_packet_core as packet;
 
 pub mod sys {
     pub use netlink_sys::{protocols, AsyncSocket, AsyncSocketExt, SocketAddr};
