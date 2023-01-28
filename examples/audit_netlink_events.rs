@@ -10,7 +10,7 @@
 // Compilation:
 // ------------
 //
-// cargo build --example audit_events
+// cargo build --example audit_netlink_events
 //
 // Usage:
 // ------
@@ -18,13 +18,12 @@
 // Find the example binary in the target directory, and run it *as
 // root*. If you compiled in debug mode with the command above, the
 // binary should be under:
-// `<repo-root>/target/debug/examples/audit_events`. This example runs
+// `<repo-root>/target/debug/examples/audit_netlink_events`. This example runs
 // forever, you must hit ^C to kill it.
 
 use futures::stream::StreamExt;
-use netlink_packet_audit::{
-    AuditMessage, NetlinkMessage, NetlinkPayload, StatusMessage, NLM_F_ACK, NLM_F_REQUEST,
-};
+use netlink_packet_audit::{AuditMessage, StatusMessage};
+use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_REQUEST};
 use std::process;
 
 use netlink_proto::{

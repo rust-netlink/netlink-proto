@@ -21,13 +21,9 @@ async fn main() -> Result<(), String> {
     let _ = async_std::task::spawn(conn);
 
     // Create the netlink message that requests the links to be dumped
-    let request = NetlinkMessage {
-        header: NetlinkHeader {
-            flags: NLM_F_DUMP | NLM_F_REQUEST,
-            ..Default::default()
-        },
-        payload: RtnlMessage::GetLink(LinkMessage::default()).into(),
-    };
+    let mut nl_hdr = NetlinkHeader::default();
+    nl_hdr.flags = NLM_F_DUMP | NLM_F_REQUEST;
+    let request = NetlinkMessage::new(nl_hdr, RtnlMessage::GetLink(LinkMessage::default()).into());
 
     // Send the request
     let mut response = handle

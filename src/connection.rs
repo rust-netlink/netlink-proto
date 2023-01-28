@@ -235,6 +235,7 @@ where
                     // because only the user knows how they want to
                     // handle them.
                     Error(_) | InnerMessage(_) => {}
+                    _ => {}
                 }
             }
 

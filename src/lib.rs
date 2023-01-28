@@ -15,13 +15,11 @@
 //!
 //! ```rust,no_run
 //! use futures::stream::StreamExt;
+//! use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK,
+//!     NLM_F_REQUEST};
 //! use netlink_packet_audit::{
 //!     AuditMessage,
-//!     NetlinkMessage,
-//!     NetlinkPayload,
 //!     StatusMessage,
-//!     NLM_F_ACK,
-//!     NLM_F_REQUEST,
 //! };
 //! use std::process;
 //!
@@ -137,14 +135,13 @@
 //!     tokio::spawn(conn);
 //!
 //!     // Create the netlink message that requests the links to be dumped
-//!     let msg = NetlinkMessage {
-//!         header: NetlinkHeader {
-//!             sequence_number: 1,
-//!             flags: NLM_F_DUMP | NLM_F_REQUEST,
-//!             ..Default::default()
-//!         },
-//!         payload: RtnlMessage::GetLink(LinkMessage::default()).into(),
-//!     };
+//!     let mut nl_hdr = NetlinkHeader::default();
+//!     nl_hdr.flags = NLM_F_DUMP | NLM_F_REQUEST;
+//!
+//!     let msg = NetlinkMessage::new(
+//!         nl_hdr,
+//!         RtnlMessage::GetLink(LinkMessage::default()).into(),
+//!     );
 //!
 //!     // Send the request
 //!     let mut response = handle
