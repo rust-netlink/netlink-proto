@@ -1,4 +1,14 @@
 # Changelog
+## [0.11.1] - 2023-01-28
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Cosmetic release to update crates.io.
+
 ## [0.11.0] - 2023-01-28
 ### Breaking changes
  - Remove `netlink_proto::packet`, please use netlink_packet_core (4fa7411)
