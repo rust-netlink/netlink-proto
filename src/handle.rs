@@ -42,17 +42,19 @@ where
         let (tx, rx) = unbounded::<NetlinkMessage<T>>();
         let request = Request::from((message, destination, tx));
         debug!("handle: forwarding new request to connection");
-        UnboundedSender::unbounded_send(&self.requests_tx, request).map_err(|e| {
-            // the channel is unbounded, so it can't be full. If this
-            // failed, it means the Connection shut down.
-            if e.is_full() {
-                panic!("internal error: unbounded channel full?!");
-            } else if e.is_disconnected() {
-                Error::ConnectionClosed
-            } else {
-                panic!("unknown error: {:?}", e);
-            }
-        })?;
+        UnboundedSender::unbounded_send(&self.requests_tx, request).map_err(
+            |e| {
+                // the channel is unbounded, so it can't be full. If this
+                // failed, it means the Connection shut down.
+                if e.is_full() {
+                    panic!("internal error: unbounded channel full?!");
+                } else if e.is_disconnected() {
+                    Error::ConnectionClosed
+                } else {
+                    panic!("unknown error: {:?}", e);
+                }
+            },
+        )?;
         Ok(rx)
     }
 

@@ -46,7 +46,8 @@ where
 
     /// Channel used to transmit to the ConnectionHandle the unsolicited
     /// messages received from the socket (multicast messages for instance).
-    unsolicited_messages_tx: Option<UnboundedSender<(NetlinkMessage<T>, SocketAddr)>>,
+    unsolicited_messages_tx:
+        Option<UnboundedSender<(NetlinkMessage<T>, SocketAddr)>>,
 
     socket_closed: bool,
 }
@@ -59,7 +60,10 @@ where
 {
     pub(crate) fn new(
         requests_rx: UnboundedReceiver<Request<T>>,
-        unsolicited_messages_tx: UnboundedSender<(NetlinkMessage<T>, SocketAddr)>,
+        unsolicited_messages_tx: UnboundedSender<(
+            NetlinkMessage<T>,
+            SocketAddr,
+        )>,
         protocol: isize,
     ) -> io::Result<Self> {
         let socket = S::new(protocol)?;
@@ -86,8 +90,11 @@ where
         let mut socket = Pin::new(socket);
 
         while !protocol.outgoing_messages.is_empty() {
-            trace!("found outgoing message to send checking if socket is ready");
-            if let Poll::Ready(Err(e)) = Pin::as_mut(&mut socket).poll_ready(cx) {
+            trace!(
+                "found outgoing message to send checking if socket is ready"
+            );
+            if let Poll::Ready(Err(e)) = Pin::as_mut(&mut socket).poll_ready(cx)
+            {
                 // Sink errors are usually not recoverable. The socket
                 // probably shut down.
                 warn!("netlink socket shut down: {:?}", e);
@@ -95,11 +102,13 @@ where
                 return;
             }
 
-            let (mut message, addr) = protocol.outgoing_messages.pop_front().unwrap();
+            let (mut message, addr) =
+                protocol.outgoing_messages.pop_front().unwrap();
             message.finalize();
 
             trace!("sending outgoing message");
-            if let Err(e) = Pin::as_mut(&mut socket).start_send((message, addr)) {
+            if let Err(e) = Pin::as_mut(&mut socket).start_send((message, addr))
+            {
                 error!("failed to send message: {:?}", e);
                 self.socket_closed = true;
                 return;
@@ -147,7 +156,9 @@ where
         if let Some(mut stream) = self.requests_rx.as_mut() {
             loop {
                 match Pin::new(&mut stream).poll_next(cx) {
-                    Poll::Ready(Some(request)) => self.protocol.request(request),
+                    Poll::Ready(Some(request)) => {
+                        self.protocol.request(request)
+                    }
                     Poll::Ready(None) => break,
                     Poll::Pending => return,
                 }
@@ -159,7 +170,9 @@ where
 
     pub fn forward_unsolicited_messages(&mut self) {
         if self.unsolicited_messages_tx.is_none() {
-            while let Some((message, source)) = self.protocol.incoming_requests.pop_front() {
+            while let Some((message, source)) =
+                self.protocol.incoming_requests.pop_front()
+            {
                 warn!(
                     "ignoring unsolicited message {:?} from {:?}",
                     message, source
@@ -177,7 +190,9 @@ where
             ..
         } = self;
 
-        while let Some((message, source)) = protocol.incoming_requests.pop_front() {
+        while let Some((message, source)) =
+            protocol.incoming_requests.pop_front()
+        {
             if unsolicited_messages_tx
                 .as_mut()
                 .unwrap()
@@ -250,7 +265,9 @@ where
     }
 
     pub fn should_shut_down(&self) -> bool {
-        self.socket_closed || (self.unsolicited_messages_tx.is_none() && self.requests_rx.is_none())
+        self.socket_closed
+            || (self.unsolicited_messages_tx.is_none()
+                && self.requests_rx.is_none())
     }
 }
 
@@ -272,7 +289,9 @@ where
         debug!("forwarding unsolicited messages to the connection handle");
         pinned.forward_unsolicited_messages();
 
-        debug!("forwaring responses to previous requests to the connection handle");
+        debug!(
+            "forwaring responses to previous requests to the connection handle"
+        );
         pinned.forward_responses();
 
         debug!("handling requests");

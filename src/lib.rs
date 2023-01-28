@@ -173,8 +173,10 @@ pub use crate::framed::*;
 
 mod protocol;
 pub(crate) use self::protocol::{Protocol, Response};
-pub(crate) type Request<T> =
-    self::protocol::Request<T, UnboundedSender<crate::packet::NetlinkMessage<T>>>;
+pub(crate) type Request<T> = self::protocol::Request<
+    T,
+    UnboundedSender<crate::packet::NetlinkMessage<T>>,
+>;
 
 mod connection;
 pub use crate::connection::*;
@@ -229,7 +231,10 @@ pub fn new_connection<T>(
     UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
 )>
 where
-    T: Debug + packet::NetlinkSerializable + packet::NetlinkDeserializable + Unpin,
+    T: Debug
+        + packet::NetlinkSerializable
+        + packet::NetlinkDeserializable
+        + Unpin,
 {
     new_connection_with_codec(protocol)
 }
@@ -245,7 +250,10 @@ pub fn new_connection_with_socket<T, S>(
     UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
 )>
 where
-    T: Debug + packet::NetlinkSerializable + packet::NetlinkDeserializable + Unpin,
+    T: Debug
+        + packet::NetlinkSerializable
+        + packet::NetlinkDeserializable
+        + Unpin,
     S: sys::AsyncSocket,
 {
     new_connection_with_codec(protocol)
@@ -262,12 +270,16 @@ pub fn new_connection_with_codec<T, S, C>(
     UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
 )>
 where
-    T: Debug + packet::NetlinkSerializable + packet::NetlinkDeserializable + Unpin,
+    T: Debug
+        + packet::NetlinkSerializable
+        + packet::NetlinkDeserializable
+        + Unpin,
     S: sys::AsyncSocket,
     C: NetlinkMessageCodec,
 {
     let (requests_tx, requests_rx) = unbounded::<Request<T>>();
-    let (messages_tx, messages_rx) = unbounded::<(packet::NetlinkMessage<T>, sys::SocketAddr)>();
+    let (messages_tx, messages_rx) =
+        unbounded::<(packet::NetlinkMessage<T>, sys::SocketAddr)>();
     Ok((
         Connection::new(requests_rx, messages_tx, protocol)?,
         ConnectionHandle::new(requests_tx),
