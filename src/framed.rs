@@ -16,7 +16,9 @@ use crate::{
     codecs::NetlinkMessageCodec,
     sys::{AsyncSocket, SocketAddr},
 };
-use netlink_packet_core::{NetlinkDeserializable, NetlinkMessage, NetlinkSerializable};
+use netlink_packet_core::{
+    NetlinkDeserializable, NetlinkMessage, NetlinkSerializable,
+};
 
 pub struct NetlinkFramed<T, S, C> {
     socket: S,
@@ -40,7 +42,10 @@ where
 {
     type Item = (NetlinkMessage<T>, SocketAddr);
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         let Self {
             ref mut socket,
             ref mut in_addr,
@@ -80,7 +85,10 @@ where
 {
     type Error = io::Error;
 
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
         if !self.flushed {
             match self.poll_flush(cx)? {
                 Poll::Ready(()) => {}
@@ -105,7 +113,10 @@ where
         Ok(())
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
         if self.flushed {
             return Poll::Ready(Ok(()));
         }
@@ -137,7 +148,10 @@ where
         Poll::Ready(res)
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_close(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
         ready!(self.poll_flush(cx))?;
         Poll::Ready(Ok(()))
     }

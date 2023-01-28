@@ -2,7 +2,8 @@
 
 use futures::StreamExt;
 use netlink_packet_route::{
-    LinkMessage, NetlinkHeader, NetlinkMessage, RtnlMessage, NLM_F_DUMP, NLM_F_REQUEST,
+    LinkMessage, NetlinkHeader, NetlinkMessage, RtnlMessage, NLM_F_DUMP,
+    NLM_F_REQUEST,
 };
 use netlink_proto::{
     new_connection,
@@ -13,8 +14,9 @@ use netlink_proto::{
 async fn main() -> Result<(), String> {
     // Create the netlink socket. Here, we won't use the channel that
     // receives unsolicited messages.
-    let (conn, mut handle, _) = new_connection(NETLINK_ROUTE)
-        .map_err(|e| format!("Failed to create a new netlink connection: {}", e))?;
+    let (conn, mut handle, _) = new_connection(NETLINK_ROUTE).map_err(|e| {
+        format!("Failed to create a new netlink connection: {}", e)
+    })?;
 
     // Spawn the `Connection` so that it starts polling the netlink
     // socket in the background.
@@ -23,7 +25,10 @@ async fn main() -> Result<(), String> {
     // Create the netlink message that requests the links to be dumped
     let mut nl_hdr = NetlinkHeader::default();
     nl_hdr.flags = NLM_F_DUMP | NLM_F_REQUEST;
-    let request = NetlinkMessage::new(nl_hdr, RtnlMessage::GetLink(LinkMessage::default()).into());
+    let request = NetlinkMessage::new(
+        nl_hdr,
+        RtnlMessage::GetLink(LinkMessage::default()).into(),
+    );
 
     // Send the request
     let mut response = handle

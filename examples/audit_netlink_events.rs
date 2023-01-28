@@ -23,7 +23,9 @@
 
 use futures::stream::StreamExt;
 use netlink_packet_audit::{AuditMessage, StatusMessage};
-use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_REQUEST};
+use netlink_packet_core::{
+    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_REQUEST,
+};
 use std::process;
 
 use netlink_proto::{
@@ -38,17 +40,19 @@ const AUDIT_STATUS_PID: u32 = 4;
 async fn main() -> Result<(), String> {
     // Create a netlink socket. Here:
     //
-    // - `conn` is a `Connection` that has the netlink socket. It's a `Future` that
-    //   keeps polling the socket and must be spawned an the event loop.
+    // - `conn` is a `Connection` that has the netlink socket. It's a `Future`
+    //   that keeps polling the socket and must be spawned an the event loop.
     //
     // - `handle` is a `Handle` to the `Connection`. We use it to send netlink
     //   messages and receive responses to these messages.
     //
-    // - `messages` is a channel receiver through which we receive messages that we
-    //   have not sollicated, ie that are not response to a request we made. In this
-    //   example, we'll receive the audit event through that channel.
+    // - `messages` is a channel receiver through which we receive messages that
+    //   we have not sollicated, ie that are not response to a request we made.
+    //   In this example, we'll receive the audit event through that channel.
     let (conn, mut handle, mut messages) = new_connection(NETLINK_AUDIT)
-        .map_err(|e| format!("Failed to create a new netlink connection: {}", e))?;
+        .map_err(|e| {
+            format!("Failed to create a new netlink connection: {e}")
+        })?;
 
     // Spawn the `Connection` so that it starts polling the netlink
     // socket in the background.
@@ -71,14 +75,14 @@ async fn main() -> Result<(), String> {
         let mut response = match handle.request(nl_msg, kernel_unicast) {
             Ok(response) => response,
             Err(e) => {
-                eprintln!("{}", e);
+                eprintln!("{e}");
                 return;
             }
         };
 
         while let Some(message) = response.next().await {
             if let NetlinkPayload::Error(err_message) = message.payload {
-                eprintln!("Received an error message: {:?}", err_message);
+                eprintln!("Received an error message: {err_message:?}");
                 return;
             }
         }
@@ -88,9 +92,9 @@ async fn main() -> Result<(), String> {
     println!("Starting to print audit events... press ^C to interrupt");
     while let Some((message, _addr)) = messages.next().await {
         if let NetlinkPayload::Error(err_message) = message.payload {
-            eprintln!("received an error message: {:?}", err_message);
+            eprintln!("received an error message: {err_message:?}");
         } else {
-            println!("{:?}", message);
+            println!("{message:?}");
         }
     }
 

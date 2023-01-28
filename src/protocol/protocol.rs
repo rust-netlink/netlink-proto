@@ -6,7 +6,8 @@ use std::{
 };
 
 use netlink_packet_core::{
-    constants::*, NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
+    constants::*, NetlinkDeserializable, NetlinkMessage, NetlinkPayload,
+    NetlinkSerializable,
 };
 
 use super::Request;
@@ -74,10 +75,19 @@ where
         }
     }
 
-    pub fn handle_message(&mut self, message: NetlinkMessage<T>, source: SocketAddr) {
-        let request_id = RequestId::new(message.header.sequence_number, source.port_number());
+    pub fn handle_message(
+        &mut self,
+        message: NetlinkMessage<T>,
+        source: SocketAddr,
+    ) {
+        let request_id = RequestId::new(
+            message.header.sequence_number,
+            source.port_number(),
+        );
         debug!("handling messages (request id = {:?})", request_id);
-        if let hash_map::Entry::Occupied(entry) = self.pending_requests.entry(request_id) {
+        if let hash_map::Entry::Occupied(entry) =
+            self.pending_requests.entry(request_id)
+        {
             Self::handle_response(&mut self.incoming_responses, entry, message);
         } else {
             self.incoming_requests.push_back((message, source));
@@ -98,7 +108,8 @@ where
         // multipart flag and we were not expecting an Ack
         let done = match message.payload {
             NetlinkPayload::InnerMessage(_)
-                if message.header.flags & NLM_F_MULTIPART == NLM_F_MULTIPART =>
+                if message.header.flags & NLM_F_MULTIPART
+                    == NLM_F_MULTIPART =>
             {
                 false
             }
@@ -134,7 +145,8 @@ where
         } = request;
 
         self.set_sequence_id(&mut message);
-        let request_id = RequestId::new(self.sequence_id, destination.port_number());
+        let request_id =
+            RequestId::new(self.sequence_id, destination.port_number());
         let flags = message.header.flags;
         self.outgoing_messages.push_back((message, destination));
 
