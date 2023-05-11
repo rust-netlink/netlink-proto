@@ -208,7 +208,12 @@ where
             }
         }
 
-        if ready {
+        if ready
+            || self
+                .unsolicited_messages_tx
+                .as_ref()
+                .map_or(true, |x| x.is_closed())
+        {
             // The channel is closed so we can drop the sender.
             let _ = self.unsolicited_messages_tx.take();
             // purge `protocol.incoming_requests`
