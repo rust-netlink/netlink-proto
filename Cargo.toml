@@ -15,7 +15,7 @@ description = "async netlink protocol"
 bytes = "1.0"
 log = "0.4.8"
 futures = "0.3"
-tokio = { version = "1.0", default-features = false, features = ["io-util"] }
+tokio = { version = "1.0", default-features = false, features = ["io-util","time"] }
 netlink-packet-core = "0.5.0"
 netlink-sys = { default-features = false, version = "0.8.4" }
 thiserror = "1.0.30"
