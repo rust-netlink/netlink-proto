@@ -314,3 +314,20 @@ where
         }
     }
 }
+
+#[cfg(all(test, feature = "tokio_socket"))]
+mod tests {
+    use crate::new_connection;
+    use crate::sys::protocols::NETLINK_AUDIT;
+    use netlink_packet_audit::AuditMessage;
+    use tokio::time;
+
+    #[tokio::test]
+    async fn connection_is_closed() {
+        let (conn, _, _) =
+            new_connection::<AuditMessage>(NETLINK_AUDIT).unwrap();
+        let join_handle = tokio::spawn(conn);
+        time::sleep(time::Duration::from_millis(200)).await;
+        assert!(join_handle.is_finished());
+    }
+}
