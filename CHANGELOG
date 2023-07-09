@@ -1,4 +1,15 @@
 # Changelog
+## [0.11.2] - 2023-01-28
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Check for closed unsolicited messages channel. (2e14c59)
+ - Use latest netlink-packet-core 0.7.0. (55fb44f)
+
 ## [0.11.1] - 2023-01-28
 ### Breaking changes
  - N/A
