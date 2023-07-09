@@ -244,8 +244,11 @@ where
                     // dropping the last instance of that sender,
                     // hence closing the channel and signaling the
                     // handle that no more messages are expected.
-                    Noop | Done | Ack(_) => {
-                        trace!("not forwarding Noop/Ack/Done message to the handle");
+                    Noop | Done(_) => {
+                        trace!(
+                            "not forwarding Noop/Ack/Done message to \
+                            the handle"
+                        );
                         continue;
                     }
                     // I'm not sure how we should handle overrun messages
@@ -254,7 +257,16 @@ where
                     // that are part of the netlink subprotocol,
                     // because only the user knows how they want to
                     // handle them.
-                    Error(_) | InnerMessage(_) => {}
+                    Error(err_msg) => {
+                        if err_msg.code.is_none() {
+                            trace!(
+                                "not forwarding Noop/Ack/Done message to \
+                                the handle"
+                            );
+                            continue;
+                        }
+                    }
+                    InnerMessage(_) => {}
                     _ => {}
                 }
             }
