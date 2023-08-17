@@ -89,17 +89,23 @@ where
         } = self;
         let mut socket = Pin::new(socket);
 
-        while !protocol.outgoing_messages.is_empty() {
+        if !protocol.outgoing_messages.is_empty() {
             trace!(
                 "found outgoing message to send checking if socket is ready"
             );
-            if let Poll::Ready(Err(e)) = Pin::as_mut(&mut socket).poll_ready(cx)
-            {
-                // Sink errors are usually not recoverable. The socket
-                // probably shut down.
-                warn!("netlink socket shut down: {:?}", e);
-                self.socket_closed = true;
-                return;
+            match Pin::as_mut(&mut socket).poll_ready(cx) {
+                Poll::Ready(Err(e)) => {
+                    // Sink errors are usually not recoverable. The socket
+                    // probably shut down.
+                    warn!("netlink socket shut down: {:?}", e);
+                    self.socket_closed = true;
+                    return;
+                }
+                Poll::Pending => {
+                    trace!("poll is not ready, returning");
+                    return;
+                }
+                Poll::Ready(Ok(_)) => {}
             }
 
             let (mut message, addr) =
