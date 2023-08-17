@@ -35,7 +35,7 @@ where
     ///   message, the stream is
     /// closed
     pub fn request(
-        &mut self,
+        &self,
         message: NetlinkMessage<T>,
         destination: SocketAddr,
     ) -> Result<impl Stream<Item = NetlinkMessage<T>>, Error<T>> {
@@ -59,7 +59,7 @@ where
     }
 
     pub fn notify(
-        &mut self,
+        &self,
         message: NetlinkMessage<T>,
         destination: SocketAddr,
     ) -> Result<(), Error<T>> {
