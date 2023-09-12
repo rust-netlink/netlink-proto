@@ -307,7 +307,7 @@ where
         pinned.forward_unsolicited_messages();
 
         debug!(
-            "forwaring responses to previous requests to the connection handle"
+            "forwarding responses to previous requests to the connection handle"
         );
         pinned.forward_responses();
 
