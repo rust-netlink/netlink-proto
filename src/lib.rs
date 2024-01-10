@@ -110,13 +110,11 @@
 //! ```rust,no_run
 //! use futures::StreamExt;
 //!
-//! use netlink_packet_route::{
-//!     LinkMessage,
+//! use netlink_packet_route::{link::LinkMessage, RouteNetlinkMessage};
+//! use netlink_packet_core::{
 //!     NetlinkHeader,
 //!     NetlinkMessage,
-//!     RtnlMessage,
-//!     NLM_F_DUMP,
-//!     NLM_F_REQUEST,
+//!     NLM_F_REQUEST, NLM_F_DUMP
 //! };
 //!
 //! use netlink_proto::{
@@ -140,7 +138,7 @@
 //!
 //!     let msg = NetlinkMessage::new(
 //!         nl_hdr,
-//!         RtnlMessage::GetLink(LinkMessage::default()).into(),
+//!         RouteNetlinkMessage::GetLink(LinkMessage::default()).into(),
 //!     );
 //!
 //!     // Send the request

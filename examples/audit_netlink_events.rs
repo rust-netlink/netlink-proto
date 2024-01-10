@@ -49,8 +49,8 @@ async fn main() -> Result<(), String> {
     // - `messages` is a channel receiver through which we receive messages that
     //   we have not sollicated, ie that are not response to a request we made.
     //   In this example, we'll receive the audit event through that channel.
-    let (conn, mut handle, mut messages) = new_connection(NETLINK_AUDIT)
-        .map_err(|e| {
+    let (conn, handle, mut messages) =
+        new_connection(NETLINK_AUDIT).map_err(|e| {
             format!("Failed to create a new netlink connection: {e}")
         })?;
 
