@@ -1,4 +1,16 @@
 # Changelog
+## [0.11.3] - 2024-01-12
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Limited outgoing messages on buffer to 1 per poll_send_messages call
+   (f4cbd15)
+ - Connection calls now use immutable reference to self (72b91a5)
+
 ## [0.11.2] - 2023-07-29
 ### Breaking changes
  - N/A
