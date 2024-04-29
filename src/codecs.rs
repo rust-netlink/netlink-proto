@@ -48,7 +48,7 @@ impl NetlinkMessageCodec for NetlinkCodec {
     where
         T: NetlinkDeserializable + Debug,
     {
-        debug!("NetlinkCodec: decoding next message");
+        trace!("NetlinkCodec: decoding next message");
 
         loop {
             // If there's nothing to read, return Ok(None)

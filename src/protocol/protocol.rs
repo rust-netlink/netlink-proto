@@ -84,7 +84,7 @@ where
             message.header.sequence_number,
             source.port_number(),
         );
-        debug!("handling messages (request id = {:?})", request_id);
+        trace!("handling messages (request id = {:?})", request_id);
         if let hash_map::Entry::Occupied(entry) =
             self.pending_requests.entry(request_id)
         {
@@ -101,7 +101,7 @@ where
     ) {
         let entry_key;
         let mut request_id = entry.key();
-        debug!("handling response to request {:?}", request_id);
+        trace!("handling response to request {:?}", request_id);
 
         // A request is processed if we receive an Ack, Error,
         // Done, Overrun, or InnerMessage without the
@@ -134,7 +134,7 @@ where
             metadata,
         };
         incoming_responses.push_back(response);
-        debug!("done handling response to request {:?}", request_id);
+        trace!("done handling response to request {:?}", request_id);
     }
 
     pub fn request(&mut self, request: Request<T, M>) {
