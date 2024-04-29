@@ -306,21 +306,21 @@ where
         trace!("polling Connection");
         let pinned = self.get_mut();
 
-        debug!("reading incoming messages");
+        trace!("reading incoming messages");
         pinned.poll_read_messages(cx);
 
-        debug!("forwarding unsolicited messages to the connection handle");
+        trace!("forwarding unsolicited messages to the connection handle");
         pinned.forward_unsolicited_messages();
 
-        debug!(
+        trace!(
             "forwarding responses to previous requests to the connection handle"
         );
         pinned.forward_responses();
 
-        debug!("handling requests");
+        trace!("handling requests");
         pinned.poll_requests(cx);
 
-        debug!("sending messages");
+        trace!("sending messages");
         pinned.poll_send_messages(cx);
 
         trace!("done polling Connection");
