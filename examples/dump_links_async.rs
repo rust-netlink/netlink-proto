@@ -20,7 +20,7 @@ async fn main() -> Result<(), String> {
 
     // Spawn the `Connection` so that it starts polling the netlink
     // socket in the background.
-    let _ = async_std::task::spawn(conn);
+    async_std::task::spawn(conn);
 
     // Create the netlink message that requests the links to be dumped
     let mut nl_hdr = NetlinkHeader::default();
@@ -36,12 +36,8 @@ async fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to send request: {}", e))?;
 
     // Print all the messages received in response
-    loop {
-        if let Some(packet) = response.next().await {
-            println!("<<< {:?}", packet);
-        } else {
-            break;
-        }
+    while let Some(packet) = response.next().await {
+        println!("<<< {:?}", packet);
     }
 
     Ok(())
