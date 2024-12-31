@@ -284,3 +284,31 @@ where
         messages_rx,
     ))
 }
+
+/// Variant of [`new_connection`] that allows specifying a socket type to use
+/// for async handling, a special codec and a socket
+#[allow(clippy::type_complexity)]
+pub fn from_socket_with_codec<T, S, C>(
+    socket: S,
+) -> (
+    Connection<T, S, C>,
+    ConnectionHandle<T>,
+    UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
+)
+where
+    T: Debug
+        + packet::NetlinkSerializable
+        + packet::NetlinkDeserializable
+        + Unpin,
+    S: sys::AsyncSocket,
+    C: NetlinkMessageCodec,
+{
+    let (requests_tx, requests_rx) = unbounded::<Request<T>>();
+    let (messages_tx, messages_rx) =
+        unbounded::<(packet::NetlinkMessage<T>, sys::SocketAddr)>();
+    (
+        Connection::from_socket(requests_rx, messages_tx, socket),
+        ConnectionHandle::new(requests_tx),
+        messages_rx,
+    )
+}

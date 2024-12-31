@@ -294,6 +294,30 @@ where
     }
 }
 
+impl<T, S, C> Connection<T, S, C>
+where
+    T: Debug + NetlinkSerializable + NetlinkDeserializable + Unpin,
+    S: AsyncSocket,
+    C: NetlinkMessageCodec,
+{
+    pub(crate) fn from_socket(
+        requests_rx: UnboundedReceiver<Request<T>>,
+        unsolicited_messages_tx: UnboundedSender<(
+            NetlinkMessage<T>,
+            SocketAddr,
+        )>,
+        socket: S,
+    ) -> Self {
+        Connection {
+            socket: NetlinkFramed::new(socket),
+            protocol: Protocol::new(),
+            requests_rx: Some(requests_rx),
+            unsolicited_messages_tx: Some(unsolicited_messages_tx),
+            socket_closed: false,
+        }
+    }
+}
+
 impl<T, S, C> Future for Connection<T, S, C>
 where
     T: Debug + NetlinkSerializable + NetlinkDeserializable + Unpin,
