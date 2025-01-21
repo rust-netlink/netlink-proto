@@ -32,8 +32,7 @@ where
     /// - **acknowledgements**: when an acknowledgement is received, the stream
     ///   is closed
     /// - **end of dump messages**: similarly, upon receiving an "end of dump"
-    ///   message, the stream is
-    /// closed
+    ///   message, the stream is closed
     pub fn request(
         &self,
         message: NetlinkMessage<T>,
