@@ -1,4 +1,16 @@
 # Changelog
+## [0.11.4] - 2025-01-21
+### Breaking changes
+ - N/A
+
+### New features
+ - Add ENOBUFS handling for unsolicited messages (051ef77)
+ - New function to forward ACK/DONE/NOOP message to handler (9de99ce)
+ - Allow the user to specify their own socket (3c6fc4e)
+
+### Bug fixes
+ - N/A
+
 ## [0.11.3] - 2024-01-12
 ### Breaking changes
  - N/A
