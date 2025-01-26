@@ -236,11 +236,13 @@ where
             }
         }
 
+        // Rust 1.82 has Option::is_none_or() which can simplify
+        // below checks but that version is released on 2024 Oct. 17 which
+        // is not available on old OS like Ubuntu 24.04 LTS, RHEL 9 yet.
         if ready
-            || self
-                .unsolicited_messages_tx
-                .as_ref()
-                .is_none_or(|x| x.is_closed())
+            || self.unsolicited_messages_tx.as_ref().is_none()
+            || self.unsolicited_messages_tx.as_ref().map(|x| x.is_closed())
+                == Some(true)
         {
             // The channel is closed so we can drop the sender.
             let _ = self.unsolicited_messages_tx.take();
