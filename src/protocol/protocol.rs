@@ -6,8 +6,8 @@ use std::{
 };
 
 use netlink_packet_core::{
-    constants::*, NetlinkDeserializable, NetlinkMessage, NetlinkPayload,
-    NetlinkSerializable,
+    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
+    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST,
 };
 
 use super::Request;

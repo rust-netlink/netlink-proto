@@ -2,7 +2,7 @@
 authors = ["Corentin Henry <corentinhenry@gmail.com>"]
 name = "netlink-proto"
 version = "0.11.5"
-edition = "2018"
+edition = "2021"
 rust-version = "1.75"
 
 homepage = "https://github.com/rust-netlink/netlink-proto"
@@ -16,7 +16,7 @@ description = "async netlink protocol"
 bytes = "1.0"
 log = "0.4.8"
 futures = "0.3"
-netlink-packet-core = "0.7.0"
+netlink-packet-core = "0.8.0"
 netlink-sys = { default-features = false, version = "0.8.4" }
 thiserror = "2"
 
@@ -28,7 +28,7 @@ smol_socket = ["netlink-sys/smol_socket"]
 [dev-dependencies]
 env_logger = "0.8.2"
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
-netlink-packet-route = { version = "0.18.1" }
+netlink-packet-route = { version = "0.25.0" }
 netlink-packet-audit = { version = "0.5.0" }
 async-std = {version = "1.9.0", features = ["attributes"]}
 
