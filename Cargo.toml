@@ -29,7 +29,7 @@ smol_socket = ["netlink-sys/smol_socket"]
 env_logger = "0.8.2"
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
 netlink-packet-route = { version = "0.25.0" }
-netlink-packet-audit = { version = "0.5.0" }
+netlink-packet-audit = { version = "0.6.0" }
 async-std = {version = "1.9.0", features = ["attributes"]}
 
 [[example]]
