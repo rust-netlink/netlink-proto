@@ -1,4 +1,14 @@
 # Changelog
+## [0.12.0] - 2025-08-27
+### Breaking changes
+ - Use netlink-packet-core 0.8.0. (8c9fee9)
+
+### New features
+ - N/A
+
+### Bug fixes
+ - N/A
+
 ## [0.11.5] - 2025-01-26
 ### Breaking changes
  - N/A
