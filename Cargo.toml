@@ -15,7 +15,8 @@ description = "async netlink protocol"
 [dependencies]
 bytes = "1.0"
 log = "0.4.8"
-futures = "0.3"
+futures-channel = "0.3"
+futures-util = { version = "0.3", features = ["sink"] }
 netlink-packet-core = "0.8.1"
 netlink-sys = { default-features = false, version = "0.8.4" }
 thiserror = "2"

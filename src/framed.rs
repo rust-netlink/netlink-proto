@@ -10,7 +10,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{Sink, Stream};
+use futures_util::{Sink, Stream};
 use log::error;
 
 use crate::{

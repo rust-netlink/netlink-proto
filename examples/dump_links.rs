@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use futures::StreamExt;
+use futures_util::StreamExt;
 use netlink_packet_core::{
     NetlinkHeader, NetlinkMessage, NLM_F_DUMP, NLM_F_REQUEST,
 };

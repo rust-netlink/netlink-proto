@@ -14,7 +14,7 @@
 //! - `netlink-packet-audit = "^0.1"`
 //!
 //! ```rust,no_run
-//! use futures::stream::StreamExt;
+//! use futures_util::stream::StreamExt;
 //! use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK,
 //!     NLM_F_REQUEST};
 //! use netlink_packet_audit::{
@@ -108,7 +108,7 @@
 //! in a `Connection` which was polled automatically by the runtime.
 //!
 //! ```rust,no_run
-//! use futures::StreamExt;
+//! use futures_util::StreamExt;
 //!
 //! use netlink_packet_route::{link::LinkMessage, RouteNetlinkMessage};
 //! use netlink_packet_core::{
@@ -159,7 +159,7 @@
 //! }
 //! ```
 #[macro_use]
-extern crate futures;
+extern crate futures_util;
 #[macro_use]
 extern crate log;
 
@@ -185,7 +185,7 @@ pub use crate::errors::*;
 mod handle;
 pub use crate::handle::*;
 
-use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::{fmt::Debug, io};
 
 pub(crate) use netlink_packet_core as packet;

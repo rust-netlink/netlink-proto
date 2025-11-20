@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-use futures::{
-    channel::mpsc::{unbounded, UnboundedSender},
-    Stream,
-};
+use futures_channel::mpsc::{unbounded, UnboundedSender};
+use futures_util::Stream;
 use netlink_packet_core::NetlinkMessage;
 use std::fmt::Debug;
 

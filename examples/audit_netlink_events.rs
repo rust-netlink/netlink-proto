@@ -21,7 +21,7 @@
 // `<repo-root>/target/debug/examples/audit_netlink_events`. This example runs
 // forever, you must hit ^C to kill it.
 
-use futures::stream::StreamExt;
+use futures_util::stream::StreamExt;
 use netlink_packet_audit::{AuditMessage, StatusMessage};
 use netlink_packet_core::{
     NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_REQUEST,

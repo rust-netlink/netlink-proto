@@ -7,10 +7,8 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{
-    channel::mpsc::{UnboundedReceiver, UnboundedSender},
-    Future, Sink, Stream,
-};
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
+use futures_util::{Future, Sink, Stream};
 use log::{error, warn};
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
