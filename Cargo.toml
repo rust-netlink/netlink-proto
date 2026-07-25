@@ -27,7 +27,6 @@ tokio_socket = ["netlink-sys/tokio_socket"]
 smol_socket = ["netlink-sys/smol_socket"]
 
 [dev-dependencies]
-env_logger = "0.11"
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
 netlink-packet-route = { version = "0.28.0" }
 netlink-packet-audit = { version = "0.6.1" }
