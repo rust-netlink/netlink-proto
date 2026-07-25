@@ -1,4 +1,16 @@
 # Changelog
+## [0.12.1] - 2026-07-25
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Remove unused dev-dependency: env_logger. (34952b9)
+ - Swap 'futures' dependency for 'futures-util' and 'futures-channel'. (079addc)
+ - bump dependency or rust-netlink crates version. (b54cd6d)
+
 ## [0.12.0] - 2025-08-27
 ### Breaking changes
  - Use netlink-packet-core 0.8.0. (8c9fee9)
