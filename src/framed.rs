@@ -168,8 +168,7 @@ where
         let res = if wrote_all {
             Ok(())
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(io::Error::other(
                 "failed to write entire datagram to socket",
             ))
         };
@@ -186,7 +185,7 @@ where
     }
 }
 
-// The theoritical max netlink packet size is 32KB for a netlink
+// The theoretical max netlink packet size is 32KB for a netlink
 // message since Linux 4.9 (16KB before). See:
 // https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=d35c99ff77ecb2eb239731b799386f3b3637a31e
 const INITIAL_READER_CAPACITY: usize = 64 * 1024;

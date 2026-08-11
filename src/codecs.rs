@@ -87,7 +87,7 @@ impl NetlinkMessageCodec for NetlinkCodec {
                     return Ok(Some(packet));
                 }
                 Err(e) => {
-                    error!("failed to decode packet {:#x?}: {}", &bytes, e);
+                    error!("failed to decode packet {:#x?}: {}", bytes, e);
                     // continue looping, there may be more datagrams in the
                     // buffer
                 }
@@ -102,14 +102,11 @@ impl NetlinkMessageCodec for NetlinkCodec {
         let msg_len = msg.buffer_len();
         if buf.remaining_mut() < msg_len {
             // BytesMut can expand till usize::MAX... unlikely to hit this one.
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "message is {} bytes, but only {} bytes left in the buffer",
-                    msg_len,
-                    buf.remaining_mut()
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "message is {} bytes, but only {} bytes left in the buffer",
+                msg_len,
+                buf.remaining_mut()
+            )));
         }
 
         // As NetlinkMessage::serialize needs an initialized buffer anyway
