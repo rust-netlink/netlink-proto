@@ -7,7 +7,7 @@ use std::{
 
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
-    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST,
+    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART,
 };
 
 use super::Request;
@@ -153,15 +153,12 @@ where
             // If we expect a response, we store the request id so that we
             // can map the response to this specific request.
             //
-            // Note that we expect responses in three cases only:
-            //  - when the request has the NLM_F_REQUEST flag
+            // Note that we expect responses in two cases only:
             //  - when the request has the NLM_F_ACK flag
             //  - when the request has the NLM_F_ECHO flag
             let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
-            if flags & NLM_F_REQUEST == NLM_F_REQUEST
-                || flags & NLM_F_ECHO == NLM_F_ECHO
-                || expecting_ack
-            {
+            let expecting_echo = flags & NLM_F_ECHO == NLM_F_ECHO;
+            if expecting_ack || expecting_echo {
                 self.pending_requests.insert(
                     request_id,
                     PendingRequest {
