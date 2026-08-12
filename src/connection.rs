@@ -128,16 +128,19 @@ where
                 Poll::Ready(Ok(_)) => {}
             }
 
-            let (mut message, addr) =
+            let (messages, addr) =
                 protocol.outgoing_messages.pop_front().unwrap();
-            message.finalize();
+            for mut message in messages.into_vec().into_iter() {
+                message.finalize();
 
-            trace!("sending outgoing message");
-            if let Err(e) = Pin::as_mut(&mut socket).start_send((message, addr))
-            {
-                error!("failed to send message: {:?}", e);
-                self.socket_closed = true;
-                return;
+                trace!("sending outgoing message");
+                if let Err(e) =
+                    Pin::as_mut(&mut socket).start_send((message, addr))
+                {
+                    error!("failed to send message: {:?}", e);
+                    self.socket_closed = true;
+                    return;
+                }
             }
         }
 

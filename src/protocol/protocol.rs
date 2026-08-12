@@ -57,7 +57,7 @@ pub(crate) struct Protocol<T, M> {
     pub incoming_requests: VecDeque<(NetlinkMessage<T>, SocketAddr)>,
 
     /// The messages to be sent out
-    pub outgoing_messages: VecDeque<(NetlinkMessage<T>, SocketAddr)>,
+    pub outgoing_messages: VecDeque<(Box<[NetlinkMessage<T>]>, SocketAddr)>,
 }
 
 impl<T, M> Protocol<T, M>
@@ -139,37 +139,39 @@ where
 
     pub fn request(&mut self, request: Request<T, M>) {
         let Request {
-            mut message,
             metadata,
+            mut messages,
             destination,
         } = request;
 
-        self.set_sequence_id(&mut message);
-        let request_id =
-            RequestId::new(self.sequence_id, destination.port_number());
-        let flags = message.header.flags;
-        self.outgoing_messages.push_back((message, destination));
+        for message in messages.iter_mut() {
+            self.set_sequence_id(message);
+            let request_id =
+                RequestId::new(self.sequence_id, destination.port_number());
+            let flags = message.header.flags;
 
-        // If we expect a response, we store the request id so that we
-        // can map the response to this specific request.
-        //
-        // Note that we expect responses in three cases only:
-        //  - when the request has the NLM_F_REQUEST flag
-        //  - when the request has the NLM_F_ACK flag
-        //  - when the request has the NLM_F_ECHO flag
-        let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
-        if flags & NLM_F_REQUEST == NLM_F_REQUEST
-            || flags & NLM_F_ECHO == NLM_F_ECHO
-            || expecting_ack
-        {
-            self.pending_requests.insert(
-                request_id,
-                PendingRequest {
-                    expecting_ack,
-                    metadata,
-                },
-            );
+            // If we expect a response, we store the request id so that we
+            // can map the response to this specific request.
+            //
+            // Note that we expect responses in three cases only:
+            //  - when the request has the NLM_F_REQUEST flag
+            //  - when the request has the NLM_F_ACK flag
+            //  - when the request has the NLM_F_ECHO flag
+            let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
+            if flags & NLM_F_REQUEST == NLM_F_REQUEST
+                || flags & NLM_F_ECHO == NLM_F_ECHO
+                || expecting_ack
+            {
+                self.pending_requests.insert(
+                    request_id,
+                    PendingRequest {
+                        expecting_ack,
+                        metadata: metadata.clone(),
+                    },
+                );
+            }
         }
+        self.outgoing_messages.push_back((messages, destination));
     }
 
     fn set_sequence_id(&mut self, message: &mut NetlinkMessage<T>) {

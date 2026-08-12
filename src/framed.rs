@@ -150,7 +150,7 @@ where
             return Poll::Ready(Ok(()));
         }
 
-        trace!("flushing frame; length={}", self.writer.len());
+        trace!("flushing frames; length={}", self.writer.len());
         let Self {
             ref mut socket,
             ref mut out_addr,
