@@ -1,4 +1,14 @@
 # Changelog
+## [0.12.2] - 2026-08-13
+### Breaking changes
+ - N/A
+
+### New features
+ - Support sending multiple messages for netfilter batching. (90d8797)
+
+### Bug fixes
+ - N/A
+
 ## [0.12.1] - 2026-07-25
 ### Breaking changes
  - N/A
