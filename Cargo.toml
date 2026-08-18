@@ -17,8 +17,8 @@ bytes = "1.0"
 log = "0.4.8"
 futures-channel = "0.3"
 futures-util = { version = "0.3", features = ["sink"] }
-netlink-packet-core = "0.8.1"
-netlink-sys = { default-features = false, version = "0.8.4" }
+netlink-packet-core = "0.9.0"
+netlink-sys = { default-features = false, version = "0.9.0" }
 thiserror = "2"
 
 [features]
@@ -28,7 +28,7 @@ smol_socket = ["netlink-sys/smol_socket"]
 
 [dev-dependencies]
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
-netlink-packet-route = { version = "0.28.0" }
+netlink-packet-route = { version = "0.33.0" }
 netlink-packet-audit = { version = "0.6.1" }
 async-std = {version = "1.9.0", features = ["attributes"]}
 
