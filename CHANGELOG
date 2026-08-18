@@ -1,4 +1,14 @@
 # Changelog
+## [0.13.0] - 2026-08-18
+### Breaking changes
+ - Use netlink-packet-core 0.9.0 and netlink-sys 0.9.0. (e6ab0ce)
+
+### New features
+ - N/A
+
+### Bug fixes
+ - N/A
+
 ## [0.12.2] - 2026-08-13
 ### Breaking changes
  - N/A
