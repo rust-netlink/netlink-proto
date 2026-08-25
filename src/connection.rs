@@ -287,8 +287,10 @@ where
                             continue;
                         }
                     }
-                    // I'm not sure how we should handle overrun messages
-                    Overrun(_) => unimplemented!("overrun is not handled yet"),
+                    Overrun(_) => {
+                        // Forward to the handle: the application must
+                        // resync its state after message loss.
+                    }
                     // We need to forward error messages and messages
                     // that are part of the netlink subprotocol,
                     // because only the user knows how they want to
