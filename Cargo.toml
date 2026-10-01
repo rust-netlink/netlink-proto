@@ -19,7 +19,6 @@ futures-channel = "0.3"
 futures-util = { version = "0.3", features = ["sink"] }
 netlink-packet-core = "0.9.0"
 netlink-sys = { default-features = false, version = "0.9.0" }
-thiserror = "2"
 
 [features]
 default = ["tokio_socket"]

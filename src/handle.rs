@@ -5,7 +5,7 @@ use futures_util::Stream;
 use netlink_packet_core::NetlinkMessage;
 use std::fmt::Debug;
 
-use crate::{errors::Error, sys::SocketAddr, Request};
+use crate::{errors::NetlinkProtoError, sys::SocketAddr, Request};
 
 /// A handle to pass requests to a [`Connection`](struct.Connection.html).
 #[derive(Clone, Debug)]
@@ -35,7 +35,7 @@ where
         &self,
         message: NetlinkMessage<T>,
         destination: SocketAddr,
-    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, Error<T>> {
+    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, NetlinkProtoError> {
         self.request_batch([message], destination)
     }
 
@@ -48,7 +48,7 @@ where
         &self,
         messages: impl IntoIterator<Item = NetlinkMessage<T>>,
         destination: SocketAddr,
-    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, Error<T>> {
+    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, NetlinkProtoError> {
         let (tx, rx) = unbounded::<NetlinkMessage<T>>();
         let request = Request {
             metadata: tx,
@@ -64,7 +64,7 @@ where
                 if e.is_full() {
                     panic!("internal error: unbounded channel full?!");
                 } else if e.is_disconnected() {
-                    Error::ConnectionClosed
+                    NetlinkProtoError::ConnectionClosed
                 } else {
                     panic!("unknown error: {:?}", e);
                 }
@@ -77,11 +77,11 @@ where
         &self,
         message: NetlinkMessage<T>,
         destination: SocketAddr,
-    ) -> Result<(), Error<T>> {
+    ) -> Result<(), NetlinkProtoError> {
         let (tx, _rx) = unbounded::<NetlinkMessage<T>>();
         let request = Request::from((message, destination, tx));
         trace!("handle: forwarding new request to connection");
         UnboundedSender::unbounded_send(&self.requests_tx, request)
-            .map_err(|_| Error::ConnectionClosed)
+            .map_err(|_| NetlinkProtoError::ConnectionClosed)
     }
 }
