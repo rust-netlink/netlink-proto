@@ -10,7 +10,7 @@ use netlink_packet_core::{
     NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST,
 };
 
-use super::Request;
+use super::{ExpectResponse, Request};
 use crate::sys::SocketAddr;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -142,9 +142,10 @@ where
             metadata,
             mut messages,
             destination,
+            expect_response,
         } = request;
 
-        for message in messages.iter_mut() {
+        for (index, message) in messages.iter_mut().enumerate() {
             self.set_sequence_id(message);
             let request_id =
                 RequestId::new(self.sequence_id, destination.port_number());
@@ -152,16 +153,20 @@ where
 
             // If we expect a response, we store the request id so that we
             // can map the response to this specific request.
-            //
-            // Note that we expect responses in three cases only:
-            //  - when the request has the NLM_F_REQUEST flag
-            //  - when the request has the NLM_F_ACK flag
-            //  - when the request has the NLM_F_ECHO flag
-            let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
-            if flags & NLM_F_REQUEST == NLM_F_REQUEST
-                || flags & NLM_F_ECHO == NLM_F_ECHO
-                || expecting_ack
-            {
+            let expects_response = match &expect_response {
+                // We expect a response when the message has one of:
+                //  - the NLM_F_REQUEST flag
+                //  - the NLM_F_ACK flag
+                //  - the NLM_F_ECHO flag
+                ExpectResponse::FromFlags => {
+                    flags & (NLM_F_REQUEST | NLM_F_ACK | NLM_F_ECHO) != 0
+                }
+                ExpectResponse::Explicit(expected) => {
+                    expected.get(index).copied().unwrap_or(false)
+                }
+            };
+            if expects_response {
+                let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
                 self.pending_requests.insert(
                     request_id,
                     PendingRequest {
@@ -177,5 +182,101 @@ where
     fn set_sequence_id(&mut self, message: &mut NetlinkMessage<T>) {
         self.sequence_id += 1;
         message.header.sequence_number = self.sequence_id;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use netlink_packet_audit::AuditMessage;
+
+    fn new_protocol() -> Protocol<AuditMessage, ()> {
+        Protocol::new()
+    }
+
+    fn message(flags: u16) -> NetlinkMessage<AuditMessage> {
+        let mut message = NetlinkMessage::from(AuditMessage::GetStatus(None));
+        message.header.flags = flags;
+        message
+    }
+
+    fn request(
+        messages: Box<[NetlinkMessage<AuditMessage>]>,
+        expect_response: ExpectResponse,
+    ) -> Request<AuditMessage, ()> {
+        Request {
+            metadata: (),
+            messages,
+            destination: SocketAddr::new(0, 0),
+            expect_response,
+        }
+    }
+
+    #[test]
+    fn flags_define_expected_response() {
+        for flags in [NLM_F_REQUEST, NLM_F_ACK, NLM_F_ECHO] {
+            let mut protocol = new_protocol();
+            protocol.request(request(
+                Box::new([message(flags)]),
+                ExpectResponse::FromFlags,
+            ));
+            assert_eq!(protocol.pending_requests.len(), 1, "flags: {flags:#x}");
+        }
+
+        let mut protocol = new_protocol();
+        protocol.request(request(
+            Box::new([message(0)]),
+            ExpectResponse::FromFlags,
+        ));
+        assert!(protocol.pending_requests.is_empty());
+    }
+
+    #[test]
+    fn explicit_expectation_overrides_flags() {
+        let mut protocol = new_protocol();
+        protocol.request(request(
+            Box::new([message(NLM_F_REQUEST), message(NLM_F_REQUEST)]),
+            ExpectResponse::Explicit(Box::new([true, false])),
+        ));
+        assert_eq!(protocol.pending_requests.len(), 1);
+        assert!(protocol
+            .pending_requests
+            .contains_key(&RequestId::new(1, 0)));
+        assert!(!protocol
+            .pending_requests
+            .contains_key(&RequestId::new(2, 0)));
+    }
+
+    #[test]
+    fn unexpected_response_is_unsolicited() {
+        let mut protocol = new_protocol();
+        protocol.request(request(
+            Box::new([message(NLM_F_REQUEST | NLM_F_ACK)]),
+            ExpectResponse::Explicit(Box::new([false])),
+        ));
+        assert!(protocol.pending_requests.is_empty());
+
+        protocol.handle_message(message(0), SocketAddr::new(0, 0));
+        assert!(protocol.incoming_responses.is_empty());
+        assert_eq!(protocol.incoming_requests.len(), 1);
+    }
+
+    #[test]
+    fn expected_response_closes_pending_request() {
+        let mut protocol = new_protocol();
+        protocol.request(request(
+            Box::new([message(NLM_F_REQUEST)]),
+            ExpectResponse::Explicit(Box::new([true])),
+        ));
+        assert_eq!(protocol.pending_requests.len(), 1);
+
+        let mut response = message(0);
+        response.header.sequence_number = 1;
+        protocol.handle_message(response, SocketAddr::new(0, 0));
+
+        assert!(protocol.pending_requests.is_empty());
+        assert!(protocol.incoming_requests.is_empty());
+        assert_eq!(protocol.incoming_responses.len(), 1);
+        assert!(protocol.incoming_responses[0].done);
     }
 }

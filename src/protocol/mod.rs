@@ -5,4 +5,4 @@ mod protocol;
 mod request;
 
 pub(crate) use protocol::{Protocol, Response};
-pub(crate) use request::Request;
+pub(crate) use request::{ExpectResponse, Request};
