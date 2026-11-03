@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+use std::fmt::Debug;
+
 use futures_channel::mpsc::{UnboundedSender, unbounded};
 use futures_util::Stream;
-use netlink_packet_core::NetlinkMessage;
-use std::fmt::Debug;
+use netlink_packet_core::{NetlinkMessage, NetlinkSerializable};
 
 use crate::{
     ExpectResponse, Request, errors::NetlinkProtoError, sys::SocketAddr,
@@ -22,18 +23,18 @@ pub enum ReplyExpectation {
     NotExpected,
 }
 
-/// A handle to pass requests to a [`Connection`](struct.Connection.html).
+/// A handle used to send requests over a fallible netlink connection.
 #[derive(Clone, Debug)]
 pub struct ConnectionHandle<T>
 where
-    T: Debug,
+    T: Debug + NetlinkSerializable,
 {
     requests_tx: UnboundedSender<Request<T>>,
 }
 
 impl<T> ConnectionHandle<T>
 where
-    T: Debug,
+    T: Debug + NetlinkSerializable,
 {
     pub(crate) fn new(requests_tx: UnboundedSender<Request<T>>) -> Self {
         ConnectionHandle { requests_tx }
@@ -85,10 +86,11 @@ where
     where
         I: IntoIterator<Item = NetlinkMessage<T>>,
     {
+        let messages: Vec<_> = messages.into_iter().collect();
         let (tx, rx) = unbounded::<NetlinkMessage<T>>();
         let request = Request {
             metadata: tx,
-            messages: messages.into_iter().collect(),
+            messages: messages.into_boxed_slice(),
             destination,
             expect_response: ExpectResponse::FromFlags,
         };
