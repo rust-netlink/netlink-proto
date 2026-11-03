@@ -1,4 +1,16 @@
 # Changelog
+## [0.14.0] - 2026-11-03
+### Breaking changes
+ - API break: rename Error to NetlinkProtoError and drop thiserror. (dcf23cc)
+ - Bump MSRV to 1.85 and edition to 2024. (cc7732f)
+
+### New features
+ - Add per-message reply expectation for batched requests. (a4500b1)
+
+### Bug fixes
+ - LICENSE: fix LICENSE-MIT. (b9e761d)
+ - Do not panic in NetlinkPayload::Overrun. (51f99de)
+
 ## [0.13.0] - 2026-08-18
 ### Breaking changes
  - Use netlink-packet-core 0.9.0 and netlink-sys 0.9.0. (e6ab0ce)
