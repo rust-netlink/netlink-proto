@@ -18,8 +18,8 @@ use crate::{
     sys::{AsyncSocket, SocketAddr},
 };
 use netlink_packet_core::{
-    NetlinkDeserializable, NetlinkHeader, NetlinkMessage, NetlinkPayload,
-    NetlinkSerializable, NLMSG_OVERRUN,
+    NLMSG_OVERRUN, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
+    NetlinkPayload, NetlinkSerializable,
 };
 
 /// Buffer overrun condition
@@ -52,9 +52,9 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let Self {
-            ref mut socket,
-            ref mut in_addr,
-            ref mut reader,
+            socket,
+            in_addr,
+            reader,
             ..
         } = Pin::get_mut(self);
 

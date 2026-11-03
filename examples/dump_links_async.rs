@@ -2,12 +2,12 @@
 
 use futures_util::StreamExt;
 use netlink_packet_core::{
-    NetlinkHeader, NetlinkMessage, NLM_F_DUMP, NLM_F_REQUEST,
+    NLM_F_DUMP, NLM_F_REQUEST, NetlinkHeader, NetlinkMessage,
 };
-use netlink_packet_route::{link::LinkMessage, RouteNetlinkMessage};
+use netlink_packet_route::{RouteNetlinkMessage, link::LinkMessage};
 use netlink_proto::{
     new_connection,
-    sys::{protocols::NETLINK_ROUTE, SocketAddr},
+    sys::{SocketAddr, protocols::NETLINK_ROUTE},
 };
 
 #[tokio::main]

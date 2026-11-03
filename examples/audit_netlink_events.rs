@@ -24,13 +24,13 @@
 use futures_util::stream::StreamExt;
 use netlink_packet_audit::{AuditMessage, StatusMessage};
 use netlink_packet_core::{
-    NetlinkMessage, NetlinkPayload, NLM_F_ACK, NLM_F_REQUEST,
+    NLM_F_ACK, NLM_F_REQUEST, NetlinkMessage, NetlinkPayload,
 };
 use std::process;
 
 use netlink_proto::{
     new_connection,
-    sys::{protocols::NETLINK_AUDIT, SocketAddr},
+    sys::{SocketAddr, protocols::NETLINK_AUDIT},
 };
 
 const AUDIT_STATUS_ENABLED: u32 = 1;

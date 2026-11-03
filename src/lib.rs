@@ -185,13 +185,13 @@ pub use crate::errors::*;
 mod handle;
 pub use crate::handle::*;
 
-use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
 use std::{fmt::Debug, io};
 
 pub(crate) use netlink_packet_core as packet;
 
 pub mod sys {
-    pub use netlink_sys::{protocols, AsyncSocket, AsyncSocketExt, SocketAddr};
+    pub use netlink_sys::{AsyncSocket, AsyncSocketExt, SocketAddr, protocols};
 
     #[cfg(feature = "tokio_socket")]
     pub use netlink_sys::TokioSocket;

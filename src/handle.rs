@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-use futures_channel::mpsc::{unbounded, UnboundedSender};
+use futures_channel::mpsc::{UnboundedSender, unbounded};
 use futures_util::Stream;
 use netlink_packet_core::NetlinkMessage;
 use std::fmt::Debug;
 
 use crate::{
-    errors::NetlinkProtoError, sys::SocketAddr, ExpectResponse, Request,
+    ExpectResponse, Request, errors::NetlinkProtoError, sys::SocketAddr,
 };
 
 /// Describe whether the response of a message sent through
