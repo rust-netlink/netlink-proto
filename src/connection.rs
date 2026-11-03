@@ -15,10 +15,10 @@ use netlink_packet_core::{
 };
 
 use crate::{
+    Protocol, Request, Response,
     codecs::{NetlinkCodec, NetlinkMessageCodec},
     framed::NetlinkFramed,
     sys::{AsyncSocket, SocketAddr},
-    Protocol, Request, Response,
 };
 
 #[cfg(feature = "tokio_socket")]
@@ -103,9 +103,7 @@ where
     pub fn poll_send_messages(&mut self, cx: &mut Context) {
         trace!("poll_send_messages called");
         let Connection {
-            ref mut socket,
-            ref mut protocol,
-            ..
+            socket, protocol, ..
         } = self;
         let mut socket = Pin::new(socket);
 
@@ -214,8 +212,8 @@ where
         let mut ready = false;
 
         let Connection {
-            ref mut protocol,
-            ref mut unsolicited_messages_tx,
+            protocol,
+            unsolicited_messages_tx,
             ..
         } = self;
 
@@ -231,7 +229,9 @@ where
                 // The channel is unbounded so the only error that can
                 // occur is that the channel is closed because the
                 // receiver was dropped
-                warn!("failed to forward message to connection handle: channel closed");
+                warn!(
+                    "failed to forward message to connection handle: channel closed"
+                );
                 ready = true;
                 break;
             }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
-    collections::{hash_map, HashMap, VecDeque},
+    collections::{HashMap, VecDeque, hash_map},
     fmt::Debug,
 };
 
 use netlink_packet_core::{
-    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
     NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST,
+    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
 };
 
 use super::{ExpectResponse, Request};
@@ -239,12 +239,16 @@ mod tests {
             ExpectResponse::Explicit(Box::new([true, false])),
         ));
         assert_eq!(protocol.pending_requests.len(), 1);
-        assert!(protocol
-            .pending_requests
-            .contains_key(&RequestId::new(1, 0)));
-        assert!(!protocol
-            .pending_requests
-            .contains_key(&RequestId::new(2, 0)));
+        assert!(
+            protocol
+                .pending_requests
+                .contains_key(&RequestId::new(1, 0))
+        );
+        assert!(
+            !protocol
+                .pending_requests
+                .contains_key(&RequestId::new(2, 0))
+        );
     }
 
     #[test]
