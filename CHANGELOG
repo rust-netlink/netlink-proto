@@ -1,4 +1,14 @@
 # Changelog
+## [0.14.1] - 2026-11-03
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - handle: avoid capturing request lifetimes in returned streams. (e8bc10f)
+
 ## [0.14.0] - 2026-11-03
 ### Breaking changes
  - API break: rename Error to NetlinkProtoError and drop thiserror. (dcf23cc)
