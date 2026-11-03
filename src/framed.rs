@@ -12,19 +12,18 @@ use std::{
 
 use futures_util::{Sink, Stream};
 use log::error;
-
-use crate::{
-    codecs::NetlinkMessageCodec,
-    sys::{AsyncSocket, SocketAddr},
-};
 use netlink_packet_core::{
     NLMSG_OVERRUN, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
     NetlinkPayload, NetlinkSerializable,
 };
 
+use crate::sys::{AsyncSocket, SocketAddr};
+use crate::{NetlinkMessageCodec, NetlinkProtoError};
+
 /// Buffer overrun condition
 const ENOBUFS: i32 = 105;
 
+/// A framed netlink socket using the fallible encoding API.
 pub struct NetlinkFramed<T, S, C> {
     socket: S,
     // see https://doc.rust-lang.org/nomicon/phantom-data.html
@@ -33,7 +32,7 @@ pub struct NetlinkFramed<T, S, C> {
     msg_type: PhantomData<fn(T) -> T>, // invariant
     codec: PhantomData<fn(C) -> C>,    // invariant
     reader: BytesMut,
-    writer: BytesMut,
+    writer: Vec<u8>,
     in_addr: SocketAddr,
     out_addr: SocketAddr,
     flushed: bool,
@@ -62,10 +61,7 @@ where
             match C::decode::<T>(reader) {
                 Ok(Some(item)) => return Poll::Ready(Some((item, *in_addr))),
                 Ok(None) => {}
-                Err(e) => {
-                    error!("unrecoverable error in decoder: {:?}", e);
-                    return Poll::Ready(None);
-                }
+                Err(_) => return Poll::Ready(None),
             }
 
             reader.clear();
@@ -112,7 +108,7 @@ where
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
-    type Error = io::Error;
+    type Error = NetlinkProtoError;
 
     fn poll_ready(
         self: Pin<&mut Self>,
@@ -135,7 +131,11 @@ where
         trace!("sending frame");
         let (frame, out_addr) = item;
         let pin = self.get_mut();
-        C::encode(frame, &mut pin.writer)?;
+        let start = pin.writer.len();
+        if let Err(error) = C::encode(frame, &mut pin.writer) {
+            pin.writer.truncate(start);
+            return Err(NetlinkProtoError::from(error));
+        }
         pin.out_addr = out_addr;
         pin.flushed = false;
         trace!("frame encoded; length={}", pin.writer.len());
@@ -158,22 +158,31 @@ where
             ..
         } = *self;
 
-        let n = ready!(socket.poll_send_to(cx, writer, out_addr))?;
+        let n = match ready!(socket.poll_send_to(
+            cx,
+            writer.as_slice(),
+            out_addr
+        )) {
+            Ok(n) => n,
+            Err(e) => {
+                return Poll::Ready(Err(NetlinkProtoError::SocketIo(e)));
+            }
+        };
         trace!("written {}", n);
 
         let wrote_all = n == self.writer.len();
         self.writer.clear();
         self.flushed = true;
 
-        let res = if wrote_all {
+        let result = if wrote_all {
             Ok(())
         } else {
-            Err(io::Error::other(
+            Err(NetlinkProtoError::SocketIo(io::Error::other(
                 "failed to write entire datagram to socket",
-            ))
+            )))
         };
 
-        Poll::Ready(res)
+        Poll::Ready(result)
     }
 
     fn poll_close(
@@ -193,8 +202,6 @@ const INITIAL_WRITER_CAPACITY: usize = 8 * 1024;
 
 impl<T, S, C> NetlinkFramed<T, S, C> {
     /// Create a new `NetlinkFramed` backed by the given socket and codec.
-    ///
-    /// See struct level documentation for more details.
     pub fn new(socket: S) -> Self {
         Self {
             socket,
@@ -203,12 +210,12 @@ impl<T, S, C> NetlinkFramed<T, S, C> {
             out_addr: SocketAddr::new(0, 0),
             in_addr: SocketAddr::new(0, 0),
             reader: BytesMut::with_capacity(INITIAL_READER_CAPACITY),
-            writer: BytesMut::with_capacity(INITIAL_WRITER_CAPACITY),
+            writer: Vec::with_capacity(INITIAL_WRITER_CAPACITY),
             flushed: true,
         }
     }
 
-    /// Returns a reference to the underlying I/O stream wrapped by `Framed`.
+    /// Return a reference to the underlying socket.
     ///
     /// # Note
     ///
@@ -219,8 +226,7 @@ impl<T, S, C> NetlinkFramed<T, S, C> {
         &self.socket
     }
 
-    /// Returns a mutable reference to the underlying I/O stream wrapped by
-    /// `Framed`.
+    /// Return a mutable reference to the underlying socket.
     ///
     /// # Note
     ///
@@ -231,7 +237,7 @@ impl<T, S, C> NetlinkFramed<T, S, C> {
         &mut self.socket
     }
 
-    /// Consumes the `Framed`, returning its underlying I/O stream.
+    /// Consume this framed socket and return the underlying socket.
     pub fn into_inner(self) -> S {
         self.socket
     }

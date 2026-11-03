@@ -6,8 +6,8 @@ use std::{
 };
 
 use netlink_packet_core::{
-    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST,
-    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
+    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST, NetlinkMessage,
+    NetlinkPayload,
 };
 
 use super::{ExpectResponse, Request};
@@ -62,7 +62,7 @@ pub(crate) struct Protocol<T, M> {
 
 impl<T, M> Protocol<T, M>
 where
-    T: Debug + NetlinkSerializable + NetlinkDeserializable,
+    T: Debug,
     M: Debug + Clone,
 {
     pub fn new() -> Self {
@@ -188,22 +188,24 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use netlink_packet_audit::AuditMessage;
+    use netlink_packet_route::{RouteNetlinkMessage, link::LinkMessage};
 
-    fn new_protocol() -> Protocol<AuditMessage, ()> {
+    fn new_protocol() -> Protocol<RouteNetlinkMessage, ()> {
         Protocol::new()
     }
 
-    fn message(flags: u16) -> NetlinkMessage<AuditMessage> {
-        let mut message = NetlinkMessage::from(AuditMessage::GetStatus(None));
+    fn message(flags: u16) -> NetlinkMessage<RouteNetlinkMessage> {
+        let mut message = NetlinkMessage::from(RouteNetlinkMessage::GetLink(
+            LinkMessage::default(),
+        ));
         message.header.flags = flags;
         message
     }
 
     fn request(
-        messages: Box<[NetlinkMessage<AuditMessage>]>,
+        messages: Box<[NetlinkMessage<RouteNetlinkMessage>]>,
         expect_response: ExpectResponse,
-    ) -> Request<AuditMessage, ()> {
+    ) -> Request<RouteNetlinkMessage, ()> {
         Request {
             metadata: (),
             messages,

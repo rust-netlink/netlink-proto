@@ -13,7 +13,7 @@
 //! - `tokio = "^1.0"`
 //! - `netlink-packet-audit = "^0.1"`
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use futures_util::stream::StreamExt;
 //! use netlink_packet_core::{NetlinkMessage, NetlinkPayload, NLM_F_ACK,
 //!     NLM_F_REQUEST};
@@ -186,7 +186,7 @@ mod handle;
 pub use crate::handle::*;
 
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
-use std::{fmt::Debug, io};
+use std::fmt::Debug;
 
 pub(crate) use netlink_packet_core as packet;
 
@@ -206,7 +206,7 @@ pub mod sys {
 /// response to a request made by the `Connection`). `Connection<T>` wraps a
 /// Netlink socket and implements the Netlink protocol.
 ///
-/// `protocol` must be one of the [`crate::sys::protocols`][protos] constants.
+/// `protocol` must be one of the [`crate::sys::protocols`] constants.
 ///
 /// `T` is the type of netlink messages used for this protocol. For instance, if
 /// you're using the `NETLINK_AUDIT` protocol with the `netlink-packet-audit`
@@ -217,17 +217,18 @@ pub mod sys {
 ///
 /// Most of the time, users will want to spawn the `Connection` on an async
 /// runtime, and use the handle to send messages.
-///
-/// [protos]: crate::sys::protocols
 #[cfg(feature = "tokio_socket")]
 #[allow(clippy::type_complexity)]
 pub fn new_connection<T>(
     protocol: isize,
-) -> io::Result<(
-    Connection<T>,
-    ConnectionHandle<T>,
-    UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
-)>
+) -> Result<
+    (
+        Connection<T>,
+        ConnectionHandle<T>,
+        UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
+    ),
+    NetlinkProtoError,
+>
 where
     T: Debug
         + packet::NetlinkSerializable
@@ -242,11 +243,14 @@ where
 #[allow(clippy::type_complexity)]
 pub fn new_connection_with_socket<T, S>(
     protocol: isize,
-) -> io::Result<(
-    Connection<T, S>,
-    ConnectionHandle<T>,
-    UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
-)>
+) -> Result<
+    (
+        Connection<T, S>,
+        ConnectionHandle<T>,
+        UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
+    ),
+    NetlinkProtoError,
+>
 where
     T: Debug
         + packet::NetlinkSerializable
@@ -262,11 +266,14 @@ where
 #[allow(clippy::type_complexity)]
 pub fn new_connection_with_codec<T, S, C>(
     protocol: isize,
-) -> io::Result<(
-    Connection<T, S, C>,
-    ConnectionHandle<T>,
-    UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
-)>
+) -> Result<
+    (
+        Connection<T, S, C>,
+        ConnectionHandle<T>,
+        UnboundedReceiver<(packet::NetlinkMessage<T>, sys::SocketAddr)>,
+    ),
+    NetlinkProtoError,
+>
 where
     T: Debug
         + packet::NetlinkSerializable

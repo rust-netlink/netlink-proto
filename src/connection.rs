@@ -2,7 +2,6 @@
 
 use std::{
     fmt::Debug,
-    io,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -15,7 +14,7 @@ use netlink_packet_core::{
 };
 
 use crate::{
-    Protocol, Request, Response,
+    NetlinkProtoError, Protocol, Request, Response,
     codecs::{NetlinkCodec, NetlinkMessageCodec},
     framed::NetlinkFramed,
     sys::{AsyncSocket, SocketAddr},
@@ -26,29 +25,29 @@ use netlink_sys::TokioSocket as DefaultSocket;
 #[cfg(not(feature = "tokio_socket"))]
 type DefaultSocket = ();
 
-/// Connection to a Netlink socket, running in the background.
+/// Fallible connection to a netlink socket, running in the background.
 ///
 /// [`ConnectionHandle`](struct.ConnectionHandle.html) are used to pass new
 /// requests to the `Connection`, that in turn, sends them through the netlink
 /// socket.
+///
+/// Any socket write or encode error is fatal: the connection stops and its
+/// [`Future`](std::future::Future) resolves to `Err`. Once it has stopped, new
+/// requests made through the [`ConnectionHandle`](crate::ConnectionHandle) fail
+/// with [`NetlinkProtoError::ConnectionClosed`].
 pub struct Connection<T, S = DefaultSocket, C = NetlinkCodec>
 where
     T: Debug + NetlinkSerializable + NetlinkDeserializable,
 {
     socket: NetlinkFramed<T, S, C>,
-
     protocol: Protocol<T, UnboundedSender<NetlinkMessage<T>>>,
-
     /// Channel used by the user to pass requests to the connection.
     requests_rx: Option<UnboundedReceiver<Request<T>>>,
-
     /// Channel used to transmit to the ConnectionHandle the unsolicited
     /// messages received from the socket (multicast messages for instance).
     unsolicited_messages_tx:
         Option<UnboundedSender<(NetlinkMessage<T>, SocketAddr)>>,
-
     socket_closed: bool,
-
     forward_noop: bool,
     forward_done: bool,
     forward_ack: bool,
@@ -67,7 +66,7 @@ where
             SocketAddr,
         )>,
         protocol: isize,
-    ) -> io::Result<Self> {
+    ) -> Result<Self, NetlinkProtoError> {
         let socket = S::new(protocol)?;
         Ok(Connection {
             socket: NetlinkFramed::new(socket),
@@ -81,17 +80,17 @@ where
         })
     }
 
-    /// Whether [NetlinkPayload::Noop] should forwared to handler
+    /// Whether [`NetlinkPayload::Noop`] should be forwarded to the handler.
     pub fn set_forward_noop(&mut self, value: bool) {
         self.forward_noop = value;
     }
 
-    /// Whether [NetlinkPayload::Done] should forwared to handler
+    /// Whether [`NetlinkPayload::Done`] should be forwarded to the handler.
     pub fn set_forward_done(&mut self, value: bool) {
         self.forward_done = value;
     }
 
-    /// Whether [NetlinkPayload::Ack] should forwared to handler
+    /// Whether acknowledgments should be forwarded to the handler.
     pub fn set_forward_ack(&mut self, value: bool) {
         self.forward_ack = value;
     }
@@ -100,44 +99,40 @@ where
         self.socket.get_mut()
     }
 
-    pub fn poll_send_messages(&mut self, cx: &mut Context) {
+    pub fn poll_send_messages(
+        &mut self,
+        cx: &mut Context,
+    ) -> Poll<Result<(), NetlinkProtoError>> {
         trace!("poll_send_messages called");
-        let Connection {
-            socket, protocol, ..
-        } = self;
-        let mut socket = Pin::new(socket);
-
-        if !protocol.outgoing_messages.is_empty() {
+        if !self.protocol.outgoing_messages.is_empty() {
             trace!(
                 "found outgoing message to send checking if socket is ready"
             );
-            match Pin::as_mut(&mut socket).poll_ready(cx) {
+            match Pin::new(&mut self.socket).poll_ready(cx) {
                 Poll::Ready(Err(e)) => {
                     // Sink errors are usually not recoverable. The socket
                     // probably shut down.
-                    warn!("netlink socket shut down: {:?}", e);
+                    warn!("netlink socket shut down: {e:?}");
                     self.socket_closed = true;
-                    return;
+                    return Poll::Ready(Err(e));
                 }
                 Poll::Pending => {
                     trace!("poll is not ready, returning");
-                    return;
+                    return Poll::Pending;
                 }
-                Poll::Ready(Ok(_)) => {}
+                Poll::Ready(Ok(())) => {}
             }
 
             let (messages, addr) =
-                protocol.outgoing_messages.pop_front().unwrap();
-            for mut message in messages.into_vec().into_iter() {
-                message.finalize();
-
+                self.protocol.outgoing_messages.pop_front().unwrap();
+            for message in messages.into_vec() {
                 trace!("sending outgoing message");
                 if let Err(e) =
-                    Pin::as_mut(&mut socket).start_send((message, addr))
+                    Pin::new(&mut self.socket).start_send((message, addr))
                 {
-                    error!("failed to send message: {:?}", e);
+                    error!("failed to send message: {e:?}");
                     self.socket_closed = true;
-                    return;
+                    return Poll::Ready(Err(e));
                 }
             }
         }
@@ -146,21 +141,27 @@ where
         self.poll_flush(cx)
     }
 
-    pub fn poll_flush(&mut self, cx: &mut Context) {
+    pub fn poll_flush(
+        &mut self,
+        cx: &mut Context,
+    ) -> Poll<Result<(), NetlinkProtoError>> {
         trace!("poll_flush called");
-        if let Poll::Ready(Err(e)) = Pin::new(&mut self.socket).poll_flush(cx) {
-            warn!("error flushing netlink socket: {:?}", e);
-            self.socket_closed = true;
+        match Pin::new(&mut self.socket).poll_flush(cx) {
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+            Poll::Ready(Err(e)) => {
+                warn!("error flushing netlink socket: {e:?}");
+                self.socket_closed = true;
+                Poll::Ready(Err(e))
+            }
+            Poll::Pending => Poll::Pending,
         }
     }
 
     pub fn poll_read_messages(&mut self, cx: &mut Context) {
         trace!("poll_read_messages called");
-        let mut socket = Pin::new(&mut self.socket);
-
         loop {
             trace!("polling socket");
-            match socket.as_mut().poll_next(cx) {
+            match Pin::new(&mut self.socket).poll_next(cx) {
                 Poll::Ready(Some((message, addr))) => {
                     trace!("read datagram from socket");
                     self.protocol.handle_message(message, addr);
@@ -237,13 +238,11 @@ where
             }
         }
 
-        // Rust 1.82 has Option::is_none_or() which can simplify
-        // below checks but that version is released on 2024 Oct. 17 which
-        // is not available on old OS like Ubuntu 24.04 LTS, RHEL 9 yet.
         if ready
-            || self.unsolicited_messages_tx.as_ref().is_none()
-            || self.unsolicited_messages_tx.as_ref().map(|x| x.is_closed())
-                == Some(true)
+            || self
+                .unsolicited_messages_tx
+                .as_ref()
+                .is_none_or(|x| x.is_closed())
         {
             // The channel is closed so we can drop the sender.
             let _ = self.unsolicited_messages_tx.take();
@@ -356,7 +355,7 @@ where
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
-    type Output = ();
+    type Output = Result<(), NetlinkProtoError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         trace!("polling Connection");
@@ -377,12 +376,15 @@ where
         pinned.poll_requests(cx);
 
         trace!("sending messages");
-        pinned.poll_send_messages(cx);
+        match pinned.poll_send_messages(cx) {
+            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            Poll::Ready(Ok(())) | Poll::Pending => {}
+        }
 
         trace!("done polling Connection");
 
         if pinned.should_shut_down() {
-            Poll::Ready(())
+            Poll::Ready(Ok(()))
         } else {
             Poll::Pending
         }
@@ -391,15 +393,46 @@ where
 
 #[cfg(all(test, feature = "tokio_socket"))]
 mod tests {
-    use crate::new_connection;
-    use crate::sys::protocols::NETLINK_AUDIT;
-    use netlink_packet_audit::AuditMessage;
+    use std::convert::Infallible;
+
+    use netlink_packet_core::{
+        Emitable, EncodeError, NetlinkDeserializable, NetlinkHeader,
+        NetlinkSerializable,
+    };
     use tokio::time;
+
+    use crate::new_connection;
+    use crate::sys::protocols::NETLINK_ROUTE;
+
+    #[derive(Debug)]
+    struct Fake;
+
+    impl Emitable for Fake {
+        fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
+            Ok(())
+        }
+    }
+
+    impl NetlinkSerializable for Fake {
+        fn message_type(&self) -> u16 {
+            1
+        }
+    }
+
+    impl NetlinkDeserializable for Fake {
+        type Error = Infallible;
+
+        fn deserialize(
+            _header: &NetlinkHeader,
+            _payload: &[u8],
+        ) -> Result<Self, Self::Error> {
+            Ok(Fake)
+        }
+    }
 
     #[tokio::test]
     async fn connection_is_closed() {
-        let (conn, _, _) =
-            new_connection::<AuditMessage>(NETLINK_AUDIT).unwrap();
+        let (conn, _, _) = new_connection::<Fake>(NETLINK_ROUTE).unwrap();
         let join_handle = tokio::spawn(conn);
         time::sleep(time::Duration::from_millis(200)).await;
         assert!(join_handle.is_finished());
