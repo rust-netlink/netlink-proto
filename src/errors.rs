@@ -2,9 +2,10 @@
 
 use std::{fmt, io};
 
-use netlink_packet_core::ErrorMessage;
+use netlink_packet_core::{EncodeError, ErrorMessage};
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum NetlinkProtoError {
     /// The netlink connection is closed
     ConnectionClosed,
@@ -14,6 +15,9 @@ pub enum NetlinkProtoError {
 
     /// Error while reading from or writing to the netlink socket
     SocketIo(io::Error),
+
+    /// Failed to encode a netlink message
+    Encode(EncodeError),
 }
 
 impl fmt::Display for NetlinkProtoError {
@@ -30,6 +34,9 @@ impl fmt::Display for NetlinkProtoError {
                 "error while reading from or writing to the netlink socket: \
                  {err}"
             ),
+            Self::Encode(err) => {
+                write!(f, "failed to encode netlink message: {err}")
+            }
         }
     }
 }
@@ -38,6 +45,7 @@ impl std::error::Error for NetlinkProtoError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::SocketIo(err) => Some(err),
+            Self::Encode(err) => Some(err),
             _ => None,
         }
     }
@@ -46,6 +54,12 @@ impl std::error::Error for NetlinkProtoError {
 impl From<io::Error> for NetlinkProtoError {
     fn from(err: io::Error) -> Self {
         Self::SocketIo(err)
+    }
+}
+
+impl From<EncodeError> for NetlinkProtoError {
+    fn from(err: EncodeError) -> Self {
+        Self::Encode(err)
     }
 }
 
@@ -59,7 +73,7 @@ impl From<ErrorMessage> for NetlinkProtoError {
 mod tests {
     use std::io;
 
-    use netlink_packet_core::ErrorMessage;
+    use netlink_packet_core::{EncodeError, ErrorMessage};
 
     use super::NetlinkProtoError;
 
@@ -95,5 +109,15 @@ mod tests {
         let source = std::error::Error::source(&err)
             .expect("socket error should expose its source");
         assert_eq!(source.to_string(), "test");
+    }
+
+    #[test]
+    fn display_and_source_encode_error() {
+        let err = NetlinkProtoError::from(EncodeError::too_large("attribute"));
+        assert_eq!(
+            err.to_string(),
+            "failed to encode netlink message: value too large: attribute"
+        );
+        assert!(std::error::Error::source(&err).is_some());
     }
 }

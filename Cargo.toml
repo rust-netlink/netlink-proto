@@ -26,8 +26,7 @@ smol_socket = ["netlink-sys/smol_socket"]
 
 [dev-dependencies]
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
-netlink-packet-route = { version = "0.33.0" }
-netlink-packet-audit = { version = "0.7.0" }
+netlink-packet-route = { version = "0.34.0" }
 async-std = {version = "1.9.0", features = ["attributes"]}
 
 [[example]]
@@ -37,5 +36,6 @@ name = "dump_links"
 name = "dump_links_async"
 required-features = ["tokio_socket"]
 
-[[example]]
-name = "audit_netlink_events"
+[patch.crates-io]
+netlink-packet-core = { git = "https://github.com/rust-netlink/netlink-packet-core.git", branch = "main" }
+netlink-packet-route = { git = "https://github.com/rust-netlink/netlink-packet-route.git", branch = "main" }
