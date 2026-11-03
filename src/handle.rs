@@ -57,7 +57,8 @@ where
         &self,
         message: NetlinkMessage<T>,
         destination: SocketAddr,
-    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, NetlinkProtoError> {
+    ) -> Result<impl Stream<Item = NetlinkMessage<T>> + use<T>, NetlinkProtoError>
+    {
         self.request_batch([message], destination)
     }
 
@@ -73,11 +74,17 @@ where
     /// [`ConnectionHandle::request_batch_with_expectation`] for these.
     ///
     /// This method can be used to send NfNetlink messages in batches.
-    pub fn request_batch(
+    pub fn request_batch<I>(
         &self,
-        messages: impl IntoIterator<Item = NetlinkMessage<T>>,
+        messages: I,
         destination: SocketAddr,
-    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, NetlinkProtoError> {
+    ) -> Result<
+        impl Stream<Item = NetlinkMessage<T>> + use<T, I>,
+        NetlinkProtoError,
+    >
+    where
+        I: IntoIterator<Item = NetlinkMessage<T>>,
+    {
         let (tx, rx) = unbounded::<NetlinkMessage<T>>();
         let request = Request {
             metadata: tx,
@@ -106,11 +113,17 @@ where
     /// destination, such as the NfNetlink `BATCH_BEGIN` and `BATCH_END`
     /// messages on kernels older than 6.10, while still expecting responses
     /// for the other messages of the batch.
-    pub fn request_batch_with_expectation(
+    pub fn request_batch_with_expectation<I>(
         &self,
-        messages: impl IntoIterator<Item = (NetlinkMessage<T>, ReplyExpectation)>,
+        messages: I,
         destination: SocketAddr,
-    ) -> Result<impl Stream<Item = NetlinkMessage<T>>, NetlinkProtoError> {
+    ) -> Result<
+        impl Stream<Item = NetlinkMessage<T>> + use<T, I>,
+        NetlinkProtoError,
+    >
+    where
+        I: IntoIterator<Item = (NetlinkMessage<T>, ReplyExpectation)>,
+    {
         let (tx, rx) = unbounded::<NetlinkMessage<T>>();
         let mut netlink_messages = Vec::new();
         let mut expect_response = Vec::new();
