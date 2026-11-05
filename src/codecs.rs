@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-use std::{fmt::Debug, io};
+use std::fmt::Debug;
 
-use bytes::{BufMut, BytesMut};
 use netlink_packet_core::{
-    NetlinkBuffer, NetlinkDeserializable, NetlinkMessage, NetlinkSerializable,
+    DecodeError, EncodeError, NetlinkBuffer, NetlinkDeserializable,
+    NetlinkMessage, NetlinkSerializable,
 };
 
 /// Protocol to serialize and deserialize messages to and from datagrams
@@ -27,12 +27,17 @@ pub trait NetlinkMessageCodec {
     ///
     /// There might be more than one message; this needs to be called until it
     /// either returns `Ok(None)` or an error.
-    fn decode<T>(src: &mut BytesMut) -> io::Result<Option<NetlinkMessage<T>>>
+    fn decode<T>(
+        src: &mut Vec<u8>,
+    ) -> Result<Option<NetlinkMessage<T>>, DecodeError>
     where
         T: NetlinkDeserializable + Debug;
 
     /// Encode message to (datagram) buffer
-    fn encode<T>(msg: NetlinkMessage<T>, buf: &mut BytesMut) -> io::Result<()>
+    fn encode<T>(
+        msg: NetlinkMessage<T>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), EncodeError>
     where
         T: NetlinkSerializable + Debug;
 }
@@ -44,78 +49,146 @@ pub struct NetlinkCodec {
 }
 
 impl NetlinkMessageCodec for NetlinkCodec {
-    fn decode<T>(src: &mut BytesMut) -> io::Result<Option<NetlinkMessage<T>>>
+    fn decode<T>(
+        src: &mut Vec<u8>,
+    ) -> Result<Option<NetlinkMessage<T>>, DecodeError>
     where
         T: NetlinkDeserializable + Debug,
     {
         trace!("NetlinkCodec: decoding next message");
 
-        loop {
-            // If there's nothing to read, return Ok(None)
-            if src.is_empty() {
-                trace!("buffer is empty");
-                return Ok(None);
-            }
+        // If there's nothing to read, return Ok(None)
+        if src.is_empty() {
+            trace!("buffer is empty");
+            return Ok(None);
+        }
 
-            // This is a bit hacky because we don't want to keep `src`
-            // borrowed, since we need to mutate it later.
-            let len = match NetlinkBuffer::new_checked(src.as_ref()) {
-                Ok(buf) => buf.length() as usize,
-                Err(e) => {
-                    // We either received a truncated packet, or the
-                    // packet if malformed (invalid length field). In
-                    // both case, we can't decode the datagram, and we
-                    // cannot find the start of the next one (if
-                    // any). The only solution is to clear the buffer
-                    // and potentially lose some datagrams.
-                    error!(
-                        "failed to decode datagram, clearing buffer: {:?}: {:#x?}.",
-                        e,
-                        src.as_ref()
-                    );
-                    src.clear();
-                    return Ok(None);
-                }
-            };
+        let len = NetlinkBuffer::new_checked(src.as_slice())?.length() as usize;
+        let packet = NetlinkMessage::<T>::deserialize(&src[..len])?;
+        src.drain(..len);
+        trace!("<<< {:?}", packet);
+        Ok(Some(packet))
+    }
 
-            let bytes = src.split_to(len);
+    fn encode<T>(
+        msg: NetlinkMessage<T>,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), EncodeError>
+    where
+        T: NetlinkSerializable + Debug,
+    {
+        msg.serialize_into(buf)?;
+        trace!(">>> {:?}", msg);
+        Ok(())
+    }
+}
 
-            let parsed = NetlinkMessage::<T>::deserialize(&bytes);
-            match parsed {
-                Ok(packet) => {
-                    trace!("<<< {:?}", packet);
-                    return Ok(Some(packet));
-                }
-                Err(e) => {
-                    error!("failed to decode packet {:#x?}: {}", bytes, e);
-                    // continue looping, there may be more datagrams in the
-                    // buffer
-                }
-            }
+#[cfg(test)]
+mod tests {
+    use std::convert::Infallible;
+
+    use netlink_packet_core::{
+        DefaultNla, Emitable, EncodeError, NLA_MAX_VALUE_LEN, NetlinkBuffer,
+        NetlinkDeserializable, NetlinkHeader, NetlinkMessage, NetlinkPayload,
+        NetlinkSerializable,
+    };
+    use netlink_packet_route::{
+        RouteNetlinkMessage,
+        route::{RouteAttribute, RouteMessage},
+    };
+
+    use super::{NetlinkCodec, NetlinkMessageCodec};
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Fake;
+
+    impl Emitable for Fake {
+        fn emit_into(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+            out.extend_from_slice(b"abc");
+            Ok(())
         }
     }
 
-    fn encode<T>(msg: NetlinkMessage<T>, buf: &mut BytesMut) -> io::Result<()>
-    where
-        T: Debug + NetlinkSerializable,
-    {
-        let msg_len = msg.buffer_len();
-        if buf.remaining_mut() < msg_len {
-            // BytesMut can expand till usize::MAX... unlikely to hit this one.
-            return Err(io::Error::other(format!(
-                "message is {} bytes, but only {} bytes left in the buffer",
-                msg_len,
-                buf.remaining_mut()
-            )));
+    impl NetlinkSerializable for Fake {
+        fn message_type(&self) -> u16 {
+            42
+        }
+    }
+
+    impl NetlinkDeserializable for Fake {
+        type Error = Infallible;
+
+        fn deserialize(
+            _header: &NetlinkHeader,
+            payload: &[u8],
+        ) -> Result<Self, Self::Error> {
+            assert_eq!(payload, b"abc");
+            Ok(Fake)
+        }
+    }
+
+    #[test]
+    fn encode_sets_header_and_decode_round_trips() {
+        let message: NetlinkMessage<Fake> = NetlinkMessage::new(
+            NetlinkHeader::default(),
+            NetlinkPayload::InnerMessage(Fake),
+        );
+
+        let mut buffer = Vec::new();
+        NetlinkCodec::encode(message, &mut buffer).unwrap();
+        assert_eq!(buffer.len(), 19);
+        let header = NetlinkBuffer::new_checked(buffer.as_slice()).unwrap();
+        assert_eq!(header.length(), 19);
+        assert_eq!(header.message_type(), 42);
+
+        let mut source = buffer.clone();
+        let decoded =
+            NetlinkCodec::decode::<Fake>(&mut source).unwrap().unwrap();
+        assert_eq!(decoded.payload, NetlinkPayload::InnerMessage(Fake));
+    }
+
+    #[test]
+    fn encode_error_preserves_buffer() {
+        #[derive(Debug)]
+        struct Bad;
+
+        impl Emitable for Bad {
+            fn emit_into(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+                out.push(1);
+                Err(EncodeError::new("bad message"))
+            }
         }
 
-        // As NetlinkMessage::serialize needs an initialized buffer anyway
-        // no need for any `unsafe` magic.
-        let old_len = buf.len();
-        let new_len = old_len + msg_len;
-        buf.resize(new_len, 0);
-        msg.serialize(&mut buf[old_len..][..msg_len]);
-        trace!(">>> {:?}", msg);
-        Ok(())
+        impl NetlinkSerializable for Bad {
+            fn message_type(&self) -> u16 {
+                1
+            }
+        }
+
+        let message = NetlinkMessage::new(
+            NetlinkHeader::default(),
+            NetlinkPayload::InnerMessage(Bad),
+        );
+        let mut buffer = vec![0xaa];
+        NetlinkCodec::encode(message, &mut buffer).unwrap_err();
+        assert_eq!(buffer, vec![0xaa]);
+    }
+
+    #[test]
+    fn encode_route_attribute_error_preserves_buffer() {
+        let mut route = RouteMessage::default();
+        route.attributes.push(RouteAttribute::Other(DefaultNla::new(
+            1,
+            vec![0; NLA_MAX_VALUE_LEN + 1],
+        )));
+        let message = NetlinkMessage::new(
+            NetlinkHeader::default(),
+            NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewRoute(route)),
+        );
+
+        let mut buffer = vec![0xaa];
+        let error = NetlinkCodec::encode(message, &mut buffer).unwrap_err();
+        assert!(error.is_too_large(), "unexpected error: {error}");
+        assert_eq!(buffer, vec![0xaa]);
     }
 }
