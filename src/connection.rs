@@ -10,7 +10,8 @@ use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::{Future, Sink, Stream};
 use log::{error, warn};
 use netlink_packet_core::{
-    NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable,
+    NetlinkDeserializable, NetlinkMessage, NetlinkMessagePayload,
+    NetlinkPayload,
 };
 
 use crate::{
@@ -37,7 +38,7 @@ type DefaultSocket = ();
 /// with [`NetlinkProtoError::ConnectionClosed`].
 pub struct Connection<T, S = DefaultSocket, C = NetlinkCodec>
 where
-    T: Debug + NetlinkSerializable + NetlinkDeserializable,
+    T: Debug + NetlinkMessagePayload + NetlinkDeserializable,
 {
     socket: NetlinkFramed<T, S, C>,
     protocol: Protocol<T, UnboundedSender<NetlinkMessage<T>>>,
@@ -55,7 +56,7 @@ where
 
 impl<T, S, C> Connection<T, S, C>
 where
-    T: Debug + NetlinkSerializable + NetlinkDeserializable + Unpin,
+    T: Debug + NetlinkMessagePayload + NetlinkDeserializable + Unpin,
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
@@ -324,7 +325,7 @@ where
 
 impl<T, S, C> Connection<T, S, C>
 where
-    T: Debug + NetlinkSerializable + NetlinkDeserializable + Unpin,
+    T: Debug + NetlinkMessagePayload + NetlinkDeserializable + Unpin,
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
@@ -351,7 +352,7 @@ where
 
 impl<T, S, C> Future for Connection<T, S, C>
 where
-    T: Debug + NetlinkSerializable + NetlinkDeserializable + Unpin,
+    T: Debug + NetlinkMessagePayload + NetlinkDeserializable + Unpin,
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
@@ -397,7 +398,7 @@ mod tests {
 
     use netlink_packet_core::{
         Emitable, EncodeError, NetlinkDeserializable, NetlinkHeader,
-        NetlinkSerializable,
+        NetlinkMessagePayload,
     };
     use tokio::time;
 
@@ -413,7 +414,7 @@ mod tests {
         }
     }
 
-    impl NetlinkSerializable for Fake {
+    impl NetlinkMessagePayload for Fake {
         fn message_type(&self) -> u16 {
             1
         }

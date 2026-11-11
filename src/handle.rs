@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 use futures_channel::mpsc::{UnboundedSender, unbounded};
 use futures_util::Stream;
-use netlink_packet_core::{NetlinkMessage, NetlinkSerializable};
+use netlink_packet_core::{NetlinkMessage, NetlinkMessagePayload};
 
 use crate::{
     ExpectResponse, Request, errors::NetlinkProtoError, sys::SocketAddr,
@@ -27,14 +27,14 @@ pub enum ReplyExpectation {
 #[derive(Clone, Debug)]
 pub struct ConnectionHandle<T>
 where
-    T: Debug + NetlinkSerializable,
+    T: Debug + NetlinkMessagePayload,
 {
     requests_tx: UnboundedSender<Request<T>>,
 }
 
 impl<T> ConnectionHandle<T>
 where
-    T: Debug + NetlinkSerializable,
+    T: Debug + NetlinkMessagePayload,
 {
     pub(crate) fn new(requests_tx: UnboundedSender<Request<T>>) -> Self {
         ConnectionHandle { requests_tx }
