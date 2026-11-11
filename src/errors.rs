@@ -4,6 +4,7 @@ use std::{fmt, io};
 
 use netlink_packet_core::EncodeError;
 
+/// Errors returned by a netlink connection or handle.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum NetlinkProtoError {

@@ -257,6 +257,8 @@ use std::{
 
 pub(crate) use netlink_packet_core as packet;
 
+/// Netlink socket types, addresses and protocol constants re-exported from
+/// `netlink-sys`.
 pub mod sys {
     pub use netlink_sys::{AsyncSocket, AsyncSocketExt, SocketAddr, protocols};
 

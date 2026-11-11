@@ -111,6 +111,10 @@ where
         self.forward_ack = value;
     }
 
+    /// Get a mutable reference to the underlying netlink socket.
+    ///
+    /// This can be used to configure the socket, for instance to bind it or
+    /// join multicast groups, before spawning the [`Connection`] future.
     pub fn socket_mut(&mut self) -> &mut S {
         self.socket.get_mut()
     }
