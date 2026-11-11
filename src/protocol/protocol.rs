@@ -188,24 +188,52 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use netlink_packet_route::{RouteNetlinkMessage, link::LinkMessage};
+    use netlink_packet_core::{
+        DecodeError, Emitable, EncodeError, NetlinkDeserializable,
+        NetlinkHeader, NetlinkMessagePayload,
+    };
 
-    fn new_protocol() -> Protocol<RouteNetlinkMessage, ()> {
+    #[derive(Debug)]
+    struct TestMessage;
+
+    impl Emitable for TestMessage {
+        fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
+            Ok(())
+        }
+    }
+
+    impl NetlinkMessagePayload for TestMessage {
+        fn message_type(&self) -> u16 {
+            1
+        }
+    }
+
+    impl NetlinkDeserializable for TestMessage {
+        fn deserialize(
+            _header: &NetlinkHeader,
+            _payload: &[u8],
+        ) -> Result<Self, DecodeError> {
+            Ok(Self)
+        }
+    }
+
+    fn new_protocol() -> Protocol<TestMessage, ()> {
         Protocol::new()
     }
 
-    fn message(flags: u16) -> NetlinkMessage<RouteNetlinkMessage> {
-        let mut message = NetlinkMessage::from(RouteNetlinkMessage::GetLink(
-            LinkMessage::default(),
-        ));
+    fn message(flags: u16) -> NetlinkMessage<TestMessage> {
+        let mut message = NetlinkMessage::new(
+            NetlinkHeader::default(),
+            NetlinkPayload::InnerMessage(TestMessage),
+        );
         message.header.flags = flags;
         message
     }
 
     fn request(
-        messages: Box<[NetlinkMessage<RouteNetlinkMessage>]>,
+        messages: Box<[NetlinkMessage<TestMessage>]>,
         expect_response: ExpectResponse,
-    ) -> Request<RouteNetlinkMessage, ()> {
+    ) -> Request<TestMessage, ()> {
         Request {
             metadata: (),
             messages,

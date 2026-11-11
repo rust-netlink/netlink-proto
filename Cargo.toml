@@ -26,8 +26,6 @@ smol_socket = ["netlink-sys/smol_socket"]
 
 [dev-dependencies]
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
-netlink-packet-route = { git = "https://github.com/rust-netlink/netlink-packet-route.git", branch = "main" }
-async-std = {version = "1.9.0", features = ["attributes"]}
 
 [[example]]
 name = "dump_links"

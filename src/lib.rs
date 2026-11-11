@@ -110,10 +110,15 @@
 //! ```rust,no_run
 //! use futures_util::StreamExt;
 //!
-//! use netlink_packet_route::{link::LinkMessage, RouteNetlinkMessage};
 //! use netlink_packet_core::{
+//!     DecodeError,
+//!     Emitable,
+//!     EncodeError,
+//!     NetlinkDeserializable,
 //!     NetlinkHeader,
 //!     NetlinkMessage,
+//!     NetlinkMessagePayload,
+//!     NetlinkPayload,
 //!     NLM_F_REQUEST, NLM_F_DUMP
 //! };
 //!
@@ -121,6 +126,48 @@
 //!     new_connection,
 //!     sys::{protocols::NETLINK_ROUTE, SocketAddr},
 //! };
+//!
+//! // Minimal raw ROUTE message so this example does not depend on
+//! // `netlink-packet-route`.
+//! #[derive(Debug)]
+//! struct RawRouteMessage {
+//!     message_type: u16,
+//!     payload: Vec<u8>,
+//! }
+//!
+//! impl RawRouteMessage {
+//!     fn get_link() -> Self {
+//!         Self {
+//!             message_type: 18,     // RTM_GETLINK
+//!             payload: vec![0; 16], // empty ifinfomsg
+//!         }
+//!     }
+//! }
+//!
+//! impl Emitable for RawRouteMessage {
+//!     fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+//!         out.extend_from_slice(&self.payload);
+//!         Ok(())
+//!     }
+//! }
+//!
+//! impl NetlinkMessagePayload for RawRouteMessage {
+//!     fn message_type(&self) -> u16 {
+//!         self.message_type
+//!     }
+//! }
+//!
+//! impl NetlinkDeserializable for RawRouteMessage {
+//!     fn deserialize(
+//!         header: &NetlinkHeader,
+//!         payload: &[u8],
+//!     ) -> Result<Self, DecodeError> {
+//!         Ok(Self {
+//!             message_type: header.message_type,
+//!             payload: payload.to_vec(),
+//!         })
+//!     }
+//! }
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), String> {
@@ -138,7 +185,7 @@
 //!
 //!     let msg = NetlinkMessage::new(
 //!         nl_hdr,
-//!         RouteNetlinkMessage::GetLink(LinkMessage::default()).into(),
+//!         NetlinkPayload::InnerMessage(RawRouteMessage::get_link()),
 //!     );
 //!
 //!     // Send the request

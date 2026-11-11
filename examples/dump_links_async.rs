@@ -2,13 +2,16 @@
 
 use futures_util::StreamExt;
 use netlink_packet_core::{
-    NLM_F_DUMP, NLM_F_REQUEST, NetlinkHeader, NetlinkMessage,
+    NLM_F_DUMP, NLM_F_REQUEST, NetlinkHeader, NetlinkMessage, NetlinkPayload,
 };
-use netlink_packet_route::{RouteNetlinkMessage, link::LinkMessage};
 use netlink_proto::{
     new_connection,
     sys::{SocketAddr, protocols::NETLINK_ROUTE},
 };
+
+mod common;
+
+use common::RawRouteMessage;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -20,14 +23,14 @@ async fn main() -> Result<(), String> {
 
     // Spawn the `Connection` so that it starts polling the netlink
     // socket in the background.
-    async_std::task::spawn(conn);
+    tokio::spawn(conn);
 
     // Create the netlink message that requests the links to be dumped
     let mut nl_hdr = NetlinkHeader::default();
     nl_hdr.flags = NLM_F_DUMP | NLM_F_REQUEST;
     let request = NetlinkMessage::new(
         nl_hdr,
-        RouteNetlinkMessage::GetLink(LinkMessage::default()).into(),
+        NetlinkPayload::InnerMessage(RawRouteMessage::get_link()),
     );
 
     // Send the request

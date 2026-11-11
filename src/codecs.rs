@@ -132,11 +132,7 @@ mod tests {
     use netlink_packet_core::{
         DecodeError, DefaultNla, Emitable, EncodeError, EncodeErrorKind,
         NLA_MAX_VALUE_LEN, NetlinkBuffer, NetlinkDeserializable, NetlinkHeader,
-        NetlinkMessage, NetlinkMessagePayload, NetlinkPayload,
-    };
-    use netlink_packet_route::{
-        RouteNetlinkMessage,
-        route::{RouteAttribute, RouteMessage},
+        NetlinkMessage, NetlinkMessagePayload, NetlinkPayload, Nla,
     };
 
     use bytes::BytesMut;
@@ -265,16 +261,29 @@ mod tests {
         assert_eq!(buffer, vec![0xaa]);
     }
 
+    #[derive(Debug)]
+    struct OversizedNla(DefaultNla);
+
+    impl Emitable for OversizedNla {
+        fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+            self.0.emit(out)
+        }
+    }
+
+    impl NetlinkMessagePayload for OversizedNla {
+        fn message_type(&self) -> u16 {
+            1
+        }
+    }
+
     #[test]
-    fn encode_route_attribute_error_preserves_buffer() {
-        let mut route = RouteMessage::default();
-        route.attributes.push(RouteAttribute::Other(DefaultNla::new(
-            1,
-            vec![0; NLA_MAX_VALUE_LEN + 1],
-        )));
+    fn encode_attribute_error_preserves_buffer() {
         let message = NetlinkMessage::new(
             NetlinkHeader::default(),
-            NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewRoute(route)),
+            NetlinkPayload::InnerMessage(OversizedNla(DefaultNla::new(
+                1,
+                vec![0; NLA_MAX_VALUE_LEN + 1],
+            ))),
         );
 
         let mut buffer = vec![0xaa];
