@@ -213,7 +213,7 @@ pub mod sys {
 /// crate, `T` will be `netlink_packet_audit::AuditMessage`. More generally, `T`
 /// is anything that can be serialized and deserialized into a Netlink message.
 /// See the `netlink_packet_core` documentation for details about the
-/// `NetlinkSerializable` and `NetlinkDeserializable` traits.
+/// `NetlinkMessagePayload` and `NetlinkDeserializable` traits.
 ///
 /// Most of the time, users will want to spawn the `Connection` on an async
 /// runtime, and use the handle to send messages.
@@ -231,7 +231,7 @@ pub fn new_connection<T>(
 >
 where
     T: Debug
-        + packet::NetlinkSerializable
+        + packet::NetlinkMessagePayload
         + packet::NetlinkDeserializable
         + Unpin,
 {
@@ -253,7 +253,7 @@ pub fn new_connection_with_socket<T, S>(
 >
 where
     T: Debug
-        + packet::NetlinkSerializable
+        + packet::NetlinkMessagePayload
         + packet::NetlinkDeserializable
         + Unpin,
     S: sys::AsyncSocket,
@@ -276,7 +276,7 @@ pub fn new_connection_with_codec<T, S, C>(
 >
 where
     T: Debug
-        + packet::NetlinkSerializable
+        + packet::NetlinkMessagePayload
         + packet::NetlinkDeserializable
         + Unpin,
     S: sys::AsyncSocket,
@@ -304,7 +304,7 @@ pub fn from_socket_with_codec<T, S, C>(
 )
 where
     T: Debug
-        + packet::NetlinkSerializable
+        + packet::NetlinkMessagePayload
         + packet::NetlinkDeserializable
         + Unpin,
     S: sys::AsyncSocket,

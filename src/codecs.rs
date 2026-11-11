@@ -5,7 +5,7 @@ use std::{fmt::Debug, io};
 use bytes::BytesMut;
 use netlink_packet_core::{
     Emitable, EncodeError, NetlinkBuffer, NetlinkDeserializable,
-    NetlinkMessage, NetlinkSerializable,
+    NetlinkMessage, NetlinkMessagePayload,
 };
 
 /// Protocol to serialize and deserialize messages to and from datagrams
@@ -19,10 +19,10 @@ use netlink_packet_core::{
 /// separate implementation.
 ///
 /// Although one could make a tighter binding between `NetlinkMessageCodec` and
-/// the message types (NetlinkDeserializable+NetlinkSerializable) it can handle,
-/// this would put quite some overhead on subsystems that followed the spec - so
-/// we simply default to the proper implementation (in `Connection`) and the
-/// `audit` code needs to overwrite it.
+/// the message types (NetlinkDeserializable+NetlinkMessagePayload) it can
+/// handle, this would put quite some overhead on subsystems that followed the
+/// spec - so we simply default to the proper implementation (in `Connection`)
+/// and the `audit` code needs to overwrite it.
 pub trait NetlinkMessageCodec {
     /// Decode message of given type from datagram payload
     ///
@@ -38,7 +38,7 @@ pub trait NetlinkMessageCodec {
         buf: &mut Vec<u8>,
     ) -> Result<(), EncodeError>
     where
-        T: NetlinkSerializable + Debug;
+        T: NetlinkMessagePayload + Debug;
 }
 
 /// Standard implementation of `NetlinkMessageCodec`
@@ -104,7 +104,7 @@ impl NetlinkMessageCodec for NetlinkCodec {
         buf: &mut Vec<u8>,
     ) -> Result<(), EncodeError>
     where
-        T: NetlinkSerializable + Debug,
+        T: NetlinkMessagePayload + Debug,
     {
         msg.emit(buf)?;
         trace!(">>> {:?}", msg);
@@ -119,7 +119,7 @@ mod tests {
     use netlink_packet_core::{
         DefaultNla, Emitable, EncodeError, EncodeErrorKind, NLA_MAX_VALUE_LEN,
         NetlinkBuffer, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
-        NetlinkPayload, NetlinkSerializable,
+        NetlinkMessagePayload, NetlinkPayload,
     };
     use netlink_packet_route::{
         RouteNetlinkMessage,
@@ -140,7 +140,7 @@ mod tests {
         }
     }
 
-    impl NetlinkSerializable for Fake {
+    impl NetlinkMessagePayload for Fake {
         fn message_type(&self) -> u16 {
             42
         }
@@ -190,7 +190,7 @@ mod tests {
             }
         }
 
-        impl NetlinkSerializable for Bad {
+        impl NetlinkMessagePayload for Bad {
             fn message_type(&self) -> u16 {
                 1
             }

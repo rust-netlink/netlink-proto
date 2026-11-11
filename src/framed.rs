@@ -14,7 +14,7 @@ use futures_util::{Sink, Stream};
 use log::error;
 use netlink_packet_core::{
     NLMSG_OVERRUN, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
-    NetlinkPayload, NetlinkSerializable,
+    NetlinkMessagePayload, NetlinkPayload,
 };
 
 use crate::sys::{AsyncSocket, SocketAddr};
@@ -104,7 +104,7 @@ where
 
 impl<T, S, C> Sink<(NetlinkMessage<T>, SocketAddr)> for NetlinkFramed<T, S, C>
 where
-    T: NetlinkSerializable + Debug,
+    T: NetlinkMessagePayload + Debug,
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
