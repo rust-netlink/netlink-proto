@@ -47,7 +47,7 @@ where
     S: AsyncSocket,
     C: NetlinkMessageCodec,
 {
-    type Item = (NetlinkMessage<T>, SocketAddr);
+    type Item = Result<(NetlinkMessage<T>, SocketAddr), NetlinkProtoError>;
 
     fn poll_next(
         self: Pin<&mut Self>,
@@ -62,9 +62,13 @@ where
 
         loop {
             match C::decode::<T>(reader) {
-                Ok(Some(item)) => return Poll::Ready(Some((item, *in_addr))),
+                Ok(Some(item)) => {
+                    return Poll::Ready(Some(Ok((item, *in_addr))));
+                }
                 Ok(None) => {}
-                Err(_) => return Poll::Ready(None),
+                Err(e) => {
+                    return Poll::Ready(Some(Err(NetlinkProtoError::from(e))));
+                }
             }
 
             reader.clear();
@@ -94,11 +98,11 @@ where
                         hdr,
                         NetlinkPayload::Overrun(Vec::new()),
                     );
-                    return Poll::Ready(Some((msg, SocketAddr::new(0, 0))));
+                    return Poll::Ready(Some(Ok((msg, SocketAddr::new(0, 0)))));
                 }
                 Err(e) => {
                     error!("failed to read from netlink socket: {:?}", e);
-                    return Poll::Ready(None);
+                    return Poll::Ready(Some(Err(NetlinkProtoError::from(e))));
                 }
             };
         }
@@ -204,6 +208,20 @@ const INITIAL_READER_CAPACITY: usize = 64 * 1024;
 const INITIAL_WRITER_CAPACITY: usize = 8 * 1024;
 
 impl<T, S, C> NetlinkFramed<T, S, C> {
+    /// Queue an already-encoded netlink message for sending.
+    ///
+    /// This is used by [`Connection`](crate::Connection) so that messages are
+    /// only encoded once, when the request is submitted through the handle.
+    pub(crate) fn start_send_encoded(
+        &mut self,
+        buffer: &[u8],
+        addr: SocketAddr,
+    ) {
+        self.writer.extend_from_slice(buffer);
+        self.out_addr = addr;
+        self.flushed = false;
+    }
+
     /// Create a new `NetlinkFramed` backed by the given socket and codec.
     pub fn new(socket: S) -> Self {
         Self {

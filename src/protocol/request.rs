@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::NetlinkMessage;
+use std::sync::Arc;
 
 use crate::sys::SocketAddr;
 
-/// Describe whether a response from the destination is expected for each
-/// message of a [`Request`].
+/// A message that has already been encoded, together with the metadata needed
+/// to match its response once it has been sent.
 #[derive(Debug)]
-pub(crate) enum ExpectResponse {
-    /// A response is expected when the message has at least one of the
-    /// `NLM_F_REQUEST`, `NLM_F_ACK` or `NLM_F_ECHO` flags set.
-    FromFlags,
-    /// Explicitly describe, for each message of the request, whether a
-    /// response is expected. This slice must have exactly one entry per
-    /// message of the request.
-    Explicit(Box<[bool]>),
+pub(crate) struct OutgoingMessage {
+    /// The encoded netlink message.
+    pub buffer: Vec<u8>,
+    /// The sequence number assigned to this message.
+    pub sequence_number: u32,
+    /// Whether an acknowledgment was requested for this message.
+    pub expecting_ack: bool,
+    /// Whether a response is expected for this message.
+    pub expects_response: bool,
 }
 
 #[derive(Debug)]
-pub(crate) struct Request<T, M> {
+pub(crate) struct Request<M> {
     pub metadata: M,
-    pub messages: Box<[NetlinkMessage<T>]>,
+    pub messages: Box<[OutgoingMessage]>,
     pub destination: SocketAddr,
-    pub expect_response: ExpectResponse,
+    /// Identifies this request so that a terminal error is delivered once per
+    /// request, even when it contains several messages.
+    pub token: Arc<()>,
 }

@@ -20,6 +20,27 @@ pub enum NetlinkProtoError {
     Encode(EncodeError),
 }
 
+impl NetlinkProtoError {
+    /// Duplicate this error.
+    ///
+    /// [`io::Error`] is not [`Clone`], so a socket error is recreated from its
+    /// kind, message and OS error code.
+    pub(crate) fn duplicate(&self) -> Self {
+        match self {
+            Self::ConnectionClosed => Self::ConnectionClosed,
+            Self::NetlinkError(err) => Self::NetlinkError(err.clone()),
+            Self::SocketIo(err) => {
+                let duplicated = match err.raw_os_error() {
+                    Some(code) => io::Error::from_raw_os_error(code),
+                    None => io::Error::new(err.kind(), err.to_string()),
+                };
+                Self::SocketIo(duplicated)
+            }
+            Self::Encode(err) => Self::Encode(err.clone()),
+        }
+    }
+}
+
 impl fmt::Display for NetlinkProtoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
