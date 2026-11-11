@@ -2,16 +2,13 @@
 
 use std::{fmt, io};
 
-use netlink_packet_core::{EncodeError, ErrorMessage};
+use netlink_packet_core::EncodeError;
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum NetlinkProtoError {
     /// The netlink connection is closed
     ConnectionClosed,
-
-    /// Received an error message encoded in a netlink packet as a response
-    NetlinkError(ErrorMessage),
 
     /// Error while reading from or writing to the netlink socket
     SocketIo(io::Error),
@@ -28,7 +25,6 @@ impl NetlinkProtoError {
     pub(crate) fn duplicate(&self) -> Self {
         match self {
             Self::ConnectionClosed => Self::ConnectionClosed,
-            Self::NetlinkError(err) => Self::NetlinkError(err.clone()),
             Self::SocketIo(err) => {
                 let duplicated = match err.raw_os_error() {
                     Some(code) => io::Error::from_raw_os_error(code),
@@ -46,9 +42,6 @@ impl fmt::Display for NetlinkProtoError {
         match self {
             Self::ConnectionClosed => {
                 write!(f, "the netlink connection is closed")
-            }
-            Self::NetlinkError(msg) => {
-                write!(f, "received an error message as a response: {msg:?}")
             }
             Self::SocketIo(err) => write!(
                 f,
@@ -84,17 +77,11 @@ impl From<EncodeError> for NetlinkProtoError {
     }
 }
 
-impl From<ErrorMessage> for NetlinkProtoError {
-    fn from(err_msg: ErrorMessage) -> Self {
-        Self::NetlinkError(err_msg)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::io;
 
-    use netlink_packet_core::{EncodeError, ErrorMessage};
+    use netlink_packet_core::EncodeError;
 
     use super::NetlinkProtoError;
 
@@ -104,17 +91,6 @@ mod tests {
             NetlinkProtoError::ConnectionClosed.to_string(),
             "the netlink connection is closed"
         );
-    }
-
-    #[test]
-    fn display_and_source_netlink_error() {
-        let err = NetlinkProtoError::from(ErrorMessage::default());
-        assert_eq!(
-            err.to_string(),
-            "received an error message as a response: ErrorMessage { code: \
-             None, header: [] }"
-        );
-        assert!(std::error::Error::source(&err).is_none());
     }
 
     #[test]
