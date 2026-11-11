@@ -11,6 +11,7 @@ use std::{
 
 use futures_channel::mpsc::{UnboundedSender, unbounded};
 use futures_util::Stream;
+use log::trace;
 use netlink_packet_core::{
     EncodeError, NLM_F_ACK, NLM_F_ECHO, NLM_F_REQUEST, NetlinkMessage,
     NetlinkMessagePayload,

@@ -9,7 +9,7 @@ use std::{
 
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::{Future, Sink, Stream};
-use log::warn;
+use log::{trace, warn};
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkMessage, NetlinkMessagePayload,
     NetlinkPayload,

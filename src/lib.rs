@@ -216,11 +216,6 @@
 //! }
 //! # }
 //! ```
-#[macro_use]
-extern crate futures_util;
-#[macro_use]
-extern crate log;
-
 mod codecs;
 pub use crate::codecs::*;
 
