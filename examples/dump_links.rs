@@ -2,13 +2,16 @@
 
 use futures_util::StreamExt;
 use netlink_packet_core::{
-    NLM_F_DUMP, NLM_F_REQUEST, NetlinkHeader, NetlinkMessage,
+    NLM_F_DUMP, NLM_F_REQUEST, NetlinkHeader, NetlinkMessage, NetlinkPayload,
 };
-use netlink_packet_route::{RouteNetlinkMessage, link::LinkMessage};
 use netlink_proto::{
     new_connection,
     sys::{SocketAddr, protocols::NETLINK_ROUTE},
 };
+
+mod common;
+
+use common::RawRouteMessage;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -26,7 +29,7 @@ async fn main() -> Result<(), String> {
     nl_hdr.flags = NLM_F_DUMP | NLM_F_REQUEST;
     let request = NetlinkMessage::new(
         nl_hdr,
-        RouteNetlinkMessage::GetLink(LinkMessage::default()).into(),
+        NetlinkPayload::InnerMessage(RawRouteMessage::get_link()),
     );
 
     // Send the request
