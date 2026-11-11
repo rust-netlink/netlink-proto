@@ -217,10 +217,10 @@
 //! # }
 //! ```
 mod codecs;
-pub use crate::codecs::*;
+pub use crate::codecs::{NetlinkCodec, NetlinkMessageCodec};
 
 mod framed;
-pub use crate::framed::*;
+pub use crate::framed::NetlinkFramed;
 
 mod protocol;
 pub(crate) use self::protocol::{Protocol, Response};
@@ -236,13 +236,13 @@ pub(crate) type ResponseStream<T> = UnboundedReceiver<
 mod shutdown;
 
 mod connection;
-pub use crate::connection::*;
+pub use crate::connection::Connection;
 
 mod errors;
-pub use crate::errors::*;
+pub use crate::errors::NetlinkProtoError;
 
 mod handle;
-pub use crate::handle::*;
+pub use crate::handle::{ConnectionHandle, ReplyExpectation};
 
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
 use std::{
