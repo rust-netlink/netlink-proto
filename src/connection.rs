@@ -454,7 +454,6 @@ mod tests {
         task::{Context, Poll},
     };
 
-    use bytes::{BufMut, BytesMut};
     use futures_util::StreamExt;
     use netlink_packet_core::{
         DecodeError, Emitable, EncodeError, EncodeErrorKind, NLM_F_ACK,
@@ -508,8 +507,8 @@ mod tests {
 
     impl NetlinkMessageCodec for FailingCodec {
         fn decode<T>(
-            _src: &mut BytesMut,
-        ) -> io::Result<Option<NetlinkMessage<T>>>
+            _src: &mut [u8],
+        ) -> io::Result<Option<(NetlinkMessage<T>, usize)>>
         where
             T: NetlinkDeserializable + Debug,
         {
@@ -592,10 +591,7 @@ mod tests {
             &self,
             _cx: &mut Context<'_>,
             _buf: &mut B,
-        ) -> Poll<io::Result<()>>
-        where
-            B: BufMut,
-        {
+        ) -> Poll<io::Result<()>> {
             Poll::Pending
         }
 
@@ -603,10 +599,7 @@ mod tests {
             &self,
             _cx: &mut Context<'_>,
             _buf: &mut B,
-        ) -> Poll<io::Result<SocketAddr>>
-        where
-            B: BufMut,
-        {
+        ) -> Poll<io::Result<SocketAddr>> {
             match self.failure {
                 Failure::Receive => Poll::Ready(Err(io::Error::new(
                     io::ErrorKind::ConnectionReset,
