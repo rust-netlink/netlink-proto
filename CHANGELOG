@@ -1,4 +1,25 @@
 # Changelog
+## [1.0.0-rc1] - 2026-11-11
+### Breaking changes
+ - API break: remove unused NetlinkError variant. (10b265f)
+ - API break: make Connection poll machinery crate-private. (ed6dce6)
+ - API break: remove bytes dependency. (76d5626)
+ - API break: surface connection errors and encode in the handle. (ee5efed)
+ - API break: Rename `NetlinkSerializable` to `NetlinkMessagePayload`. (006274e)
+ - API break: Use fallible emission traits. (919acc2)
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Use explicit public re-exports. (fce7266)
+ - Replace macro_use extern crate with explicit imports. (a8c3d84)
+ - Document public API items flagged by missing_docs. (992fef9)
+ - Fix example feature gating, remove duplicate example, and expand CI. (ce6282d)
+ - Remove netlink-packet-route and async-std dev-dependency. (b66376d)
+ - Use netlink-packet-core 1.0.0-rc1. (92d134d)
+ - Handle netlink message alignment when decoding packed datagrams. (39ceda4)
+
 ## [0.14.1] - 2026-11-03
 ### Breaking changes
  - N/A
