@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use log::trace;
 use netlink_packet_core::{NLM_F_MULTIPART, NetlinkMessage, NetlinkPayload};
 
 use super::{OutgoingMessage, Request};

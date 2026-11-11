@@ -9,8 +9,8 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{Sink, Stream};
-use log::error;
+use futures_util::{Sink, Stream, ready};
+use log::{error, trace, warn};
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
     NetlinkMessagePayload, NetlinkPayload,

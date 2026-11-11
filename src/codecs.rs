@@ -2,6 +2,7 @@
 
 use std::{fmt::Debug, io};
 
+use log::{error, trace};
 use netlink_packet_core::{
     Emitable, EncodeError, NetlinkBuffer, NetlinkDeserializable,
     NetlinkMessage, NetlinkMessagePayload,
