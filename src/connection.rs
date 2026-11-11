@@ -115,7 +115,7 @@ where
         self.socket.get_mut()
     }
 
-    pub fn poll_send_messages(
+    pub(crate) fn poll_send_messages(
         &mut self,
         cx: &mut Context,
     ) -> Poll<Result<(), NetlinkProtoError>> {
@@ -151,7 +151,7 @@ where
         self.poll_flush(cx)
     }
 
-    pub fn poll_flush(
+    pub(crate) fn poll_flush(
         &mut self,
         cx: &mut Context,
     ) -> Poll<Result<(), NetlinkProtoError>> {
@@ -170,7 +170,7 @@ where
     /// Poll the socket for incoming messages.
     ///
     /// Returns the terminal error if the socket stream failed.
-    pub fn poll_read_messages(
+    pub(crate) fn poll_read_messages(
         &mut self,
         cx: &mut Context,
     ) -> Option<NetlinkProtoError> {
@@ -200,7 +200,7 @@ where
         }
     }
 
-    pub fn poll_requests(&mut self, cx: &mut Context) {
+    pub(crate) fn poll_requests(&mut self, cx: &mut Context) {
         trace!("poll_requests called");
         if let Some(mut stream) = self.requests_rx.as_mut() {
             loop {
@@ -217,7 +217,7 @@ where
         }
     }
 
-    pub fn forward_unsolicited_messages(&mut self) {
+    pub(crate) fn forward_unsolicited_messages(&mut self) {
         if self.unsolicited_messages_tx.is_none() {
             while let Some((message, source)) =
                 self.protocol.incoming_requests.pop_front()
@@ -274,7 +274,7 @@ where
         trace!("forward_unsolicited_messages done");
     }
 
-    pub fn forward_responses(&mut self) {
+    pub(crate) fn forward_responses(&mut self) {
         trace!("forward_responses called");
         let protocol = &mut self.protocol;
 
@@ -344,7 +344,7 @@ where
         self.shared.set_closed(Some(error.duplicate()));
     }
 
-    pub fn should_shut_down(&self) -> bool {
+    pub(crate) fn should_shut_down(&self) -> bool {
         self.socket_closed
             || (self.unsolicited_messages_tx.is_none()
                 && self.requests_rx.is_none())
