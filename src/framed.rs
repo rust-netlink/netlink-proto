@@ -13,7 +13,7 @@ use std::{
 use futures_util::{Sink, Stream};
 use log::error;
 use netlink_packet_core::{
-    NLMSG_OVERRUN, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
+    NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
     NetlinkMessagePayload, NetlinkPayload,
 };
 
@@ -22,6 +22,9 @@ use crate::{NetlinkMessageCodec, NetlinkProtoError};
 
 /// Buffer overrun condition
 const ENOBUFS: i32 = 105;
+
+/// Data lost.
+const NLMSG_OVERRUN: u16 = 4;
 
 /// A framed netlink socket using the fallible encoding API.
 pub struct NetlinkFramed<T, S, C> {
