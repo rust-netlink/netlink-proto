@@ -108,6 +108,8 @@
 //! in a `Connection` which was polled automatically by the runtime.
 //!
 //! ```rust,no_run
+//! # #[cfg(feature = "tokio_socket")]
+//! # mod example {
 //! use futures_util::StreamExt;
 //!
 //! use netlink_packet_core::{
@@ -204,6 +206,7 @@
 //!
 //!     Ok(())
 //! }
+//! # }
 //! ```
 #[macro_use]
 extern crate futures_util;

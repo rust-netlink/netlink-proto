@@ -28,8 +28,5 @@ smol_socket = ["netlink-sys/smol_socket"]
 tokio = { version = "1.0.1", default-features = false, features = ["macros", "rt-multi-thread", "time"] }
 
 [[example]]
-name = "dump_links"
-
-[[example]]
 name = "dump_links_async"
 required-features = ["tokio_socket"]

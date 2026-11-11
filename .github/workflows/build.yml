@@ -9,11 +9,18 @@ on:
 
 jobs:
   msrv:
-    name: Build on minimal supported rust
+    name: Build on minimal supported rust (${{ matrix.features }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "--no-default-features"
+          - "--no-default-features --features tokio_socket"
+          - "--no-default-features --features smol_socket"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust 1.85
         run: |
@@ -21,11 +28,5 @@ jobs:
           rustup update 1.85
           rustc --version
 
-      - name: Build with default feature
-        run: cargo build
-
-      - name: Build with tokio feature
-        run: cargo build --features tokio_socket
-
-      - name: Build with smol_socket feature
-        run: cargo build --features smol_socket
+      - name: Build with ${{ matrix.features }}
+        run: cargo build --all-targets ${{ matrix.features }}
