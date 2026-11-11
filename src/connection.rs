@@ -394,11 +394,9 @@ where
 
 #[cfg(all(test, feature = "tokio_socket"))]
 mod tests {
-    use std::convert::Infallible;
-
     use netlink_packet_core::{
-        Emitable, EncodeError, NetlinkDeserializable, NetlinkHeader,
-        NetlinkMessagePayload,
+        DecodeError, Emitable, EncodeError, NetlinkDeserializable,
+        NetlinkHeader, NetlinkMessagePayload,
     };
     use tokio::time;
 
@@ -421,12 +419,10 @@ mod tests {
     }
 
     impl NetlinkDeserializable for Fake {
-        type Error = Infallible;
-
         fn deserialize(
             _header: &NetlinkHeader,
             _payload: &[u8],
-        ) -> Result<Self, Self::Error> {
+        ) -> Result<Self, DecodeError> {
             Ok(Fake)
         }
     }
