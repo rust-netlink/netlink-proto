@@ -3,14 +3,12 @@
 use std::{
     collections::{HashMap, VecDeque, hash_map},
     fmt::Debug,
+    sync::Arc,
 };
 
-use netlink_packet_core::{
-    NLM_F_ACK, NLM_F_ECHO, NLM_F_MULTIPART, NLM_F_REQUEST, NetlinkMessage,
-    NetlinkPayload,
-};
+use netlink_packet_core::{NLM_F_MULTIPART, NetlinkMessage, NetlinkPayload};
 
-use super::{ExpectResponse, Request};
+use super::{OutgoingMessage, Request};
 use crate::sys::SocketAddr;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -39,13 +37,11 @@ pub(crate) struct Response<T, M> {
 struct PendingRequest<M> {
     expecting_ack: bool,
     metadata: M,
+    token: Arc<()>,
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct Protocol<T, M> {
-    /// Counter that is incremented for each message sent
-    sequence_id: u32,
-
     /// Requests for which we're awaiting a response. Metadata are
     /// associated with each request.
     pending_requests: HashMap<RequestId, PendingRequest<M>>,
@@ -57,7 +53,7 @@ pub(crate) struct Protocol<T, M> {
     pub incoming_requests: VecDeque<(NetlinkMessage<T>, SocketAddr)>,
 
     /// The messages to be sent out
-    pub outgoing_messages: VecDeque<(Box<[NetlinkMessage<T>]>, SocketAddr)>,
+    pub outgoing_messages: VecDeque<(Box<[OutgoingMessage]>, SocketAddr)>,
 }
 
 impl<T, M> Protocol<T, M>
@@ -67,7 +63,6 @@ where
 {
     pub fn new() -> Self {
         Self {
-            sequence_id: 0,
             pending_requests: HashMap::new(),
             incoming_responses: VecDeque::new(),
             incoming_requests: VecDeque::new(),
@@ -137,41 +132,26 @@ where
         trace!("done handling response to request {:?}", request_id);
     }
 
-    pub fn request(&mut self, request: Request<T, M>) {
+    pub fn request(&mut self, request: Request<M>) {
         let Request {
             metadata,
-            mut messages,
+            messages,
             destination,
-            expect_response,
+            token,
         } = request;
 
-        for (index, message) in messages.iter_mut().enumerate() {
-            self.set_sequence_id(message);
-            let request_id =
-                RequestId::new(self.sequence_id, destination.port_number());
-            let flags = message.header.flags;
-
-            // If we expect a response, we store the request id so that we
-            // can map the response to this specific request.
-            let expects_response = match &expect_response {
-                // We expect a response when the message has one of:
-                //  - the NLM_F_REQUEST flag
-                //  - the NLM_F_ACK flag
-                //  - the NLM_F_ECHO flag
-                ExpectResponse::FromFlags => {
-                    flags & (NLM_F_REQUEST | NLM_F_ACK | NLM_F_ECHO) != 0
-                }
-                ExpectResponse::Explicit(expected) => {
-                    expected.get(index).copied().unwrap_or(false)
-                }
-            };
-            if expects_response {
-                let expecting_ack = flags & NLM_F_ACK == NLM_F_ACK;
+        for message in messages.iter() {
+            if message.expects_response {
+                let request_id = RequestId::new(
+                    message.sequence_number,
+                    destination.port_number(),
+                );
                 self.pending_requests.insert(
                     request_id,
                     PendingRequest {
-                        expecting_ack,
+                        expecting_ack: message.expecting_ack,
                         metadata: metadata.clone(),
+                        token: token.clone(),
                     },
                 );
             }
@@ -179,118 +159,95 @@ where
         self.outgoing_messages.push_back((messages, destination));
     }
 
-    fn set_sequence_id(&mut self, message: &mut NetlinkMessage<T>) {
-        self.sequence_id += 1;
-        message.header.sequence_number = self.sequence_id;
+    /// Drop every pending request, handing its metadata to `fail`.
+    ///
+    /// Used when the connection terminates: each in-flight request can then be
+    /// told why it will never receive a response. Metadata is handed over once
+    /// per request, even if it spans several messages.
+    pub fn fail_pending(&mut self, mut fail: impl FnMut(M)) {
+        let mut failed = Vec::new();
+        for (_, pending) in self.pending_requests.drain() {
+            if failed
+                .iter()
+                .any(|token| Arc::ptr_eq(token, &pending.token))
+            {
+                continue;
+            }
+            failed.push(pending.token);
+            fail(pending.metadata);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use netlink_packet_core::{
-        DecodeError, Emitable, EncodeError, NetlinkDeserializable,
-        NetlinkHeader, NetlinkMessagePayload,
-    };
+    use netlink_packet_core::{NetlinkHeader, NetlinkMessage, NetlinkPayload};
 
     #[derive(Debug)]
     struct TestMessage;
-
-    impl Emitable for TestMessage {
-        fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
-            Ok(())
-        }
-    }
-
-    impl NetlinkMessagePayload for TestMessage {
-        fn message_type(&self) -> u16 {
-            1
-        }
-    }
-
-    impl NetlinkDeserializable for TestMessage {
-        fn deserialize(
-            _header: &NetlinkHeader,
-            _payload: &[u8],
-        ) -> Result<Self, DecodeError> {
-            Ok(Self)
-        }
-    }
 
     fn new_protocol() -> Protocol<TestMessage, ()> {
         Protocol::new()
     }
 
-    fn message(flags: u16) -> NetlinkMessage<TestMessage> {
+    fn message(sequence_number: u32) -> NetlinkMessage<TestMessage> {
         let mut message = NetlinkMessage::new(
             NetlinkHeader::default(),
             NetlinkPayload::InnerMessage(TestMessage),
         );
-        message.header.flags = flags;
+        message.header.sequence_number = sequence_number;
         message
     }
 
-    fn request(
-        messages: Box<[NetlinkMessage<TestMessage>]>,
-        expect_response: ExpectResponse,
-    ) -> Request<TestMessage, ()> {
+    fn outgoing(
+        sequence_number: u32,
+        expects_response: bool,
+    ) -> OutgoingMessage {
+        OutgoingMessage {
+            buffer: Vec::new(),
+            sequence_number,
+            expecting_ack: false,
+            expects_response,
+        }
+    }
+
+    fn request(messages: Box<[OutgoingMessage]>) -> Request<()> {
         Request {
             metadata: (),
             messages,
             destination: SocketAddr::new(0, 0),
-            expect_response,
+            token: Arc::new(()),
         }
     }
 
     #[test]
-    fn flags_define_expected_response() {
-        for flags in [NLM_F_REQUEST, NLM_F_ACK, NLM_F_ECHO] {
-            let mut protocol = new_protocol();
-            protocol.request(request(
-                Box::new([message(flags)]),
-                ExpectResponse::FromFlags,
-            ));
-            assert_eq!(protocol.pending_requests.len(), 1, "flags: {flags:#x}");
-        }
-
+    fn expected_response_registers_pending_request() {
         let mut protocol = new_protocol();
-        protocol.request(request(
-            Box::new([message(0)]),
-            ExpectResponse::FromFlags,
-        ));
-        assert!(protocol.pending_requests.is_empty());
-    }
-
-    #[test]
-    fn explicit_expectation_overrides_flags() {
-        let mut protocol = new_protocol();
-        protocol.request(request(
-            Box::new([message(NLM_F_REQUEST), message(NLM_F_REQUEST)]),
-            ExpectResponse::Explicit(Box::new([true, false])),
-        ));
+        protocol.request(request(Box::new([outgoing(1, true)])));
         assert_eq!(protocol.pending_requests.len(), 1);
         assert!(
             protocol
                 .pending_requests
                 .contains_key(&RequestId::new(1, 0))
         );
-        assert!(
-            !protocol
-                .pending_requests
-                .contains_key(&RequestId::new(2, 0))
-        );
+        assert_eq!(protocol.outgoing_messages.len(), 1);
     }
 
     #[test]
-    fn unexpected_response_is_unsolicited() {
+    fn unexpected_message_is_not_tracked() {
         let mut protocol = new_protocol();
-        protocol.request(request(
-            Box::new([message(NLM_F_REQUEST | NLM_F_ACK)]),
-            ExpectResponse::Explicit(Box::new([false])),
-        ));
+        protocol.request(request(Box::new([outgoing(1, false)])));
         assert!(protocol.pending_requests.is_empty());
+        assert_eq!(protocol.outgoing_messages.len(), 1);
+    }
 
-        protocol.handle_message(message(0), SocketAddr::new(0, 0));
+    #[test]
+    fn response_without_pending_request_is_unsolicited() {
+        let mut protocol = new_protocol();
+        protocol.request(request(Box::new([outgoing(1, false)])));
+
+        protocol.handle_message(message(1), SocketAddr::new(0, 0));
         assert!(protocol.incoming_responses.is_empty());
         assert_eq!(protocol.incoming_requests.len(), 1);
     }
@@ -298,19 +255,46 @@ mod tests {
     #[test]
     fn expected_response_closes_pending_request() {
         let mut protocol = new_protocol();
-        protocol.request(request(
-            Box::new([message(NLM_F_REQUEST)]),
-            ExpectResponse::Explicit(Box::new([true])),
-        ));
+        protocol.request(request(Box::new([outgoing(1, true)])));
         assert_eq!(protocol.pending_requests.len(), 1);
 
-        let mut response = message(0);
-        response.header.sequence_number = 1;
-        protocol.handle_message(response, SocketAddr::new(0, 0));
+        protocol.handle_message(message(1), SocketAddr::new(0, 0));
 
         assert!(protocol.pending_requests.is_empty());
         assert!(protocol.incoming_requests.is_empty());
         assert_eq!(protocol.incoming_responses.len(), 1);
         assert!(protocol.incoming_responses[0].done);
+    }
+
+    #[test]
+    fn fail_pending_notifies_once_per_request() {
+        use futures_channel::mpsc::unbounded;
+
+        use crate::NetlinkProtoError;
+
+        let (tx, mut rx) = unbounded::<
+            Result<NetlinkMessage<TestMessage>, NetlinkProtoError>,
+        >();
+        let mut protocol: Protocol<TestMessage, _> = Protocol::new();
+        protocol.request(Request {
+            metadata: tx.clone(),
+            messages: Box::new([outgoing(1, true), outgoing(2, true)]),
+            destination: SocketAddr::new(0, 0),
+            token: Arc::new(()),
+        });
+        drop(tx);
+
+        protocol.fail_pending(|metadata| {
+            metadata
+                .unbounded_send(Err(NetlinkProtoError::ConnectionClosed))
+                .unwrap();
+        });
+
+        assert!(matches!(
+            rx.try_recv(),
+            Ok(Err(NetlinkProtoError::ConnectionClosed))
+        ));
+        assert!(rx.try_recv().is_err());
+        assert!(protocol.pending_requests.is_empty());
     }
 }

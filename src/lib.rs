@@ -76,6 +76,13 @@
 //!         };
 //!
 //!         while let Some(message) = response.next().await {
+//!             let message = match message {
+//!                 Ok(message) => message,
+//!                 Err(e) => {
+//!                     eprintln!("connection error: {}", e);
+//!                     return;
+//!                 }
+//!             };
 //!             if let NetlinkPayload::Error(err_message) = message.payload {
 //!                 eprintln!("Received an error message: {:?}", err_message);
 //!                 return;
@@ -195,12 +202,13 @@
 //!         .request(msg, SocketAddr::new(0, 0))
 //!         .map_err(|e| format!("Failed to send request: {}", e))?;
 //!
-//!     // Print all the messages received in response
+//!     // Print all the messages received in response. The stream yields
+//!     // `Err` if the connection dies before the dump completes.
 //!     loop {
-//!         if let Some(packet) = response.next().await {
-//!             println!("<<< {:?}", packet);
-//!         } else {
-//!             break;
+//!         match response.next().await {
+//!             Some(Ok(packet)) => println!("<<< {:?}", packet),
+//!             Some(Err(e)) => eprintln!("connection error: {}", e),
+//!             None => break,
 //!         }
 //!     }
 //!
@@ -220,11 +228,17 @@ mod framed;
 pub use crate::framed::*;
 
 mod protocol;
-pub(crate) use self::protocol::{ExpectResponse, Protocol, Response};
+pub(crate) use self::protocol::{Protocol, Response};
 pub(crate) type Request<T> = self::protocol::Request<
-    T,
-    UnboundedSender<crate::packet::NetlinkMessage<T>>,
+    UnboundedSender<
+        Result<crate::packet::NetlinkMessage<T>, crate::NetlinkProtoError>,
+    >,
 >;
+pub(crate) type ResponseStream<T> = UnboundedReceiver<
+    Result<crate::packet::NetlinkMessage<T>, crate::NetlinkProtoError>,
+>;
+
+mod shutdown;
 
 mod connection;
 pub use crate::connection::*;
@@ -236,7 +250,10 @@ mod handle;
 pub use crate::handle::*;
 
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    sync::{Arc, atomic::AtomicU32},
+};
 
 pub(crate) use netlink_packet_core as packet;
 
@@ -311,6 +328,14 @@ where
     new_connection_with_codec(protocol)
 }
 
+/// Create the sequence number counter shared by a connection and its handle.
+///
+/// Sequence `0` is reserved for unsolicited kernel messages, so request
+/// numbering starts at `1`.
+fn new_sequence() -> Arc<AtomicU32> {
+    Arc::new(AtomicU32::new(1))
+}
+
 /// Variant of [`new_connection`] that allows specifying a socket type to use
 /// for async handling and a special codec
 #[allow(clippy::type_complexity)]
@@ -335,9 +360,11 @@ where
     let (requests_tx, requests_rx) = unbounded::<Request<T>>();
     let (messages_tx, messages_rx) =
         unbounded::<(packet::NetlinkMessage<T>, sys::SocketAddr)>();
+    let shared = Arc::new(shutdown::Shared::new());
+    let sequence = new_sequence();
     Ok((
-        Connection::new(requests_rx, messages_tx, protocol)?,
-        ConnectionHandle::new(requests_tx),
+        Connection::new(requests_rx, messages_tx, shared.clone(), protocol)?,
+        ConnectionHandle::<T>::new::<C>(requests_tx, shared, sequence),
         messages_rx,
     ))
 }
@@ -363,9 +390,16 @@ where
     let (requests_tx, requests_rx) = unbounded::<Request<T>>();
     let (messages_tx, messages_rx) =
         unbounded::<(packet::NetlinkMessage<T>, sys::SocketAddr)>();
+    let shared = Arc::new(shutdown::Shared::new());
+    let sequence = new_sequence();
     (
-        Connection::from_socket(requests_rx, messages_tx, socket),
-        ConnectionHandle::new(requests_tx),
+        Connection::from_socket(
+            requests_rx,
+            messages_tx,
+            shared.clone(),
+            socket,
+        ),
+        ConnectionHandle::<T>::new::<C>(requests_tx, shared, sequence),
         messages_rx,
     )
 }

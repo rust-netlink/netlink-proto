@@ -38,9 +38,13 @@ async fn main() -> Result<(), String> {
         .request(request, SocketAddr::new(0, 0))
         .map_err(|e| format!("Failed to send request: {}", e))?;
 
-    // Print all the messages received in response
+    // Print all the messages received in response. The stream yields `Err`
+    // if the connection dies before the dump completes.
     while let Some(packet) = response.next().await {
-        println!("<<< {:?}", packet);
+        match packet {
+            Ok(packet) => println!("<<< {:?}", packet),
+            Err(e) => eprintln!("connection error: {e}"),
+        }
     }
 
     Ok(())
