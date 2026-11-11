@@ -2,7 +2,6 @@
 
 use std::{fmt::Debug, io};
 
-use bytes::BytesMut;
 use netlink_packet_core::{
     Emitable, EncodeError, NetlinkBuffer, NetlinkDeserializable,
     NetlinkMessage, NetlinkMessagePayload,
@@ -31,7 +30,15 @@ pub trait NetlinkMessageCodec {
     ///
     /// There might be more than one message; this needs to be called until it
     /// either returns `Ok(None)` or an error.
-    fn decode<T>(src: &mut BytesMut) -> io::Result<Option<NetlinkMessage<T>>>
+    ///
+    /// On success, the returned tuple contains the message and the number of
+    /// bytes consumed from the start of `src` (including any malformed
+    /// messages that were skipped). The caller is expected to advance its
+    /// buffer by that amount. `Ok(None)` means the rest of the datagram should
+    /// be discarded.
+    fn decode<T>(
+        src: &mut [u8],
+    ) -> io::Result<Option<(NetlinkMessage<T>, usize)>>
     where
         T: NetlinkDeserializable + Debug;
 
@@ -51,38 +58,41 @@ pub struct NetlinkCodec {
 }
 
 impl NetlinkMessageCodec for NetlinkCodec {
-    fn decode<T>(src: &mut BytesMut) -> io::Result<Option<NetlinkMessage<T>>>
+    fn decode<T>(
+        src: &mut [u8],
+    ) -> io::Result<Option<(NetlinkMessage<T>, usize)>>
     where
         T: NetlinkDeserializable + Debug,
     {
         trace!("NetlinkCodec: decoding next message");
 
+        let mut offset = 0;
         loop {
+            let remaining = &src[offset..];
+
             // If there's nothing to read, return Ok(None)
-            if src.is_empty() {
+            if remaining.is_empty() {
                 trace!("buffer is empty");
                 return Ok(None);
             }
 
-            // Validate once, parse from the validated buffer, then advance
-            // the source. This avoids validating the same bytes again in
-            // NetlinkMessage::deserialize().
+            // Validate once, parse from the validated buffer, and report how
+            // many bytes the caller should discard. This avoids validating
+            // the same bytes again in NetlinkMessage::deserialize().
             let (consumed, parsed) = {
-                let buf = match NetlinkBuffer::new(src.as_ref()) {
+                let buf = match NetlinkBuffer::new(remaining) {
                     Ok(buf) => buf,
                     Err(e) => {
                         // We either received a truncated packet, or the
                         // packet is malformed (invalid length field). In
                         // both cases, we can't decode the datagram, and we
                         // cannot find the start of the next one (if
-                        // any). The only solution is to clear the buffer
-                        // and potentially lose some datagrams.
+                        // any). The only solution is to discard the rest of
+                        // the datagram and potentially lose some messages.
                         error!(
-                            "failed to decode datagram, clearing buffer: {:?}: {:#x?}.",
-                            e,
-                            src.as_ref()
+                            "failed to decode datagram, discarding buffer: {:?}: {:#x?}.",
+                            e, remaining
                         );
-                        src.clear();
                         return Ok(None);
                     }
                 };
@@ -93,20 +103,23 @@ impl NetlinkMessageCodec for NetlinkCodec {
                 let aligned = len.saturating_add(NLMSG_ALIGNTO - 1)
                     & !(NLMSG_ALIGNTO - 1);
                 (
-                    aligned.min(src.len()),
+                    aligned.min(remaining.len()),
                     NetlinkMessage::<T>::parse_buffer(&buf),
                 )
             };
 
-            let bytes = src.split_to(consumed);
-
             match parsed {
                 Ok(packet) => {
                     trace!("<<< {:?}", packet);
-                    return Ok(Some(packet));
+                    return Ok(Some((packet, offset + consumed)));
                 }
                 Err(e) => {
-                    error!("failed to decode packet {:#x?}: {}", bytes, e);
+                    error!(
+                        "failed to decode packet {:#x?}: {}",
+                        &remaining[..consumed],
+                        e
+                    );
+                    offset += consumed;
                     // continue looping, there may be more datagrams in the
                     // buffer
                 }
@@ -134,8 +147,6 @@ mod tests {
         NLA_MAX_VALUE_LEN, NetlinkBuffer, NetlinkDeserializable, NetlinkHeader,
         NetlinkMessage, NetlinkMessagePayload, NetlinkPayload, Nla,
     };
-
-    use bytes::BytesMut;
 
     use super::{NLMSG_ALIGNTO, NetlinkCodec, NetlinkMessageCodec};
 
@@ -179,10 +190,11 @@ mod tests {
         assert_eq!(header.length(), 19);
         assert_eq!(header.message_type(), 42);
 
-        let mut source = BytesMut::from(buffer.as_slice());
-        let decoded =
+        let mut source = buffer.clone();
+        let (decoded, consumed) =
             NetlinkCodec::decode::<Fake>(&mut source).unwrap().unwrap();
         assert_eq!(decoded.payload, NetlinkPayload::InnerMessage(Fake));
+        assert_eq!(consumed, buffer.len());
     }
 
     #[test]
@@ -206,32 +218,32 @@ mod tests {
         datagram.resize(datagram.len() + padding, 0);
         NetlinkCodec::encode(second, &mut datagram).unwrap();
 
-        let mut source = BytesMut::from(datagram.as_slice());
-        let decoded =
+        let mut source = datagram.clone();
+        let (decoded, consumed) =
             NetlinkCodec::decode::<Fake>(&mut source).unwrap().unwrap();
         assert_eq!(decoded.payload, NetlinkPayload::InnerMessage(Fake));
-        let decoded =
-            NetlinkCodec::decode::<Fake>(&mut source).unwrap().unwrap();
+        let (decoded, consumed_tail) =
+            NetlinkCodec::decode::<Fake>(&mut source[consumed..])
+                .unwrap()
+                .unwrap();
         assert_eq!(decoded.payload, NetlinkPayload::InnerMessage(Fake));
-        assert!(source.is_empty());
+        assert_eq!(consumed + consumed_tail, source.len());
     }
 
     #[test]
     fn decode_rejects_invalid_length_without_panicking() {
         let mut bytes = vec![0u8; 16];
         bytes[0] = 0x04;
-        let mut source = BytesMut::from(bytes.as_slice());
+        let mut source = bytes;
         let decoded = NetlinkCodec::decode::<Fake>(&mut source).unwrap();
         assert!(decoded.is_none());
-        assert!(source.is_empty());
     }
 
     #[test]
     fn decode_rejects_truncated_header_without_panicking() {
-        let mut source = BytesMut::from(&[0x28, 0x00][..]);
+        let mut source = vec![0x28, 0x00];
         let decoded = NetlinkCodec::decode::<Fake>(&mut source).unwrap();
         assert!(decoded.is_none());
-        assert!(source.is_empty());
     }
 
     #[test]

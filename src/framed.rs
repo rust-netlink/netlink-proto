@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-use bytes::BytesMut;
 use std::{
     fmt::Debug,
     io,
@@ -34,7 +33,8 @@ pub struct NetlinkFramed<T, S, C> {
     // should make it invariant but still Send+Sync.
     msg_type: PhantomData<fn(T) -> T>, // invariant
     codec: PhantomData<fn(C) -> C>,    // invariant
-    reader: BytesMut,
+    reader: Vec<u8>,
+    reader_offset: usize,
     writer: Vec<u8>,
     in_addr: SocketAddr,
     out_addr: SocketAddr,
@@ -57,12 +57,14 @@ where
             socket,
             in_addr,
             reader,
+            reader_offset,
             ..
         } = Pin::get_mut(self);
 
         loop {
-            match C::decode::<T>(reader) {
-                Ok(Some(item)) => {
+            match C::decode::<T>(&mut reader[*reader_offset..]) {
+                Ok(Some((item, consumed))) => {
+                    *reader_offset += consumed;
                     return Poll::Ready(Some(Ok((item, *in_addr))));
                 }
                 Ok(None) => {}
@@ -72,6 +74,7 @@ where
             }
 
             reader.clear();
+            *reader_offset = 0;
             reader.reserve(INITIAL_READER_CAPACITY);
 
             *in_addr = match ready!(socket.poll_recv_from(cx, reader)) {
@@ -230,7 +233,8 @@ impl<T, S, C> NetlinkFramed<T, S, C> {
             codec: PhantomData,
             out_addr: SocketAddr::new(0, 0),
             in_addr: SocketAddr::new(0, 0),
-            reader: BytesMut::with_capacity(INITIAL_READER_CAPACITY),
+            reader: Vec::with_capacity(INITIAL_READER_CAPACITY),
+            reader_offset: 0,
             writer: Vec::with_capacity(INITIAL_WRITER_CAPACITY),
             flushed: true,
         }

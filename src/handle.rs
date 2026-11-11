@@ -276,7 +276,6 @@ where
 mod tests {
     use std::{fmt::Debug, io, sync::Arc};
 
-    use bytes::BytesMut;
     use futures_channel::mpsc::unbounded;
     use netlink_packet_core::{
         DecodeError, Emitable, EncodeError, NLM_F_ACK, NLM_F_REQUEST,
@@ -319,8 +318,8 @@ mod tests {
 
     impl NetlinkMessageCodec for NoopCodec {
         fn decode<T>(
-            _src: &mut BytesMut,
-        ) -> io::Result<Option<NetlinkMessage<T>>>
+            _src: &mut [u8],
+        ) -> io::Result<Option<(NetlinkMessage<T>, usize)>>
         where
             T: NetlinkDeserializable + Debug,
         {
