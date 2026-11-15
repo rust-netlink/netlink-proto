@@ -1,4 +1,15 @@
 # Changelog
+## [1.0.0-rc2] - 2026-11-15
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Use netlink-packet-core 1.0.0-rc2. (3c71fe1)
+ - Use netlink-sys 1.0.0-rc2. (18f971f)
+
 ## [1.0.0-rc1] - 2026-11-11
 ### Breaking changes
  - API break: remove unused NetlinkError variant. (10b265f)
