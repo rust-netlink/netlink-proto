@@ -11,6 +11,7 @@
 //!
 //! - `futures = "^0.3"`
 //! - `tokio = "^1.0"`
+//! - `libc = "^0.2"`
 //! - `netlink-packet-audit = "^0.1"`
 //!
 //! ```rust,ignore
@@ -23,10 +24,7 @@
 //! };
 //! use std::process;
 //!
-//! use netlink_proto::{
-//!     new_connection,
-//!     sys::{protocols::NETLINK_AUDIT, SocketAddr},
-//! };
+//! use netlink_proto::{new_connection, sys::SocketAddr};
 //!
 //! const AUDIT_STATUS_ENABLED: u32 = 1;
 //! const AUDIT_STATUS_PID: u32 = 4;
@@ -46,7 +44,7 @@
 //!     //   messages that we have not solicited, ie that are not
 //!     //   response to a request we made. In this example, we'll receive
 //!     //   the audit event through that channel.
-//!     let (conn, mut handle, mut messages) = new_connection(NETLINK_AUDIT)
+//!     let (conn, mut handle, mut messages) = new_connection(libc::NETLINK_AUDIT as isize)
 //!         .map_err(|e| format!("Failed to create a new netlink connection: {}", e))?;
 //!
 //!     // Spawn the `Connection` so that it starts polling the netlink
@@ -131,10 +129,7 @@
 //!     NLM_F_REQUEST, NLM_F_DUMP
 //! };
 //!
-//! use netlink_proto::{
-//!     new_connection,
-//!     sys::{protocols::NETLINK_ROUTE, SocketAddr},
-//! };
+//! use netlink_proto::{new_connection, sys::SocketAddr};
 //!
 //! // Minimal raw ROUTE message so this example does not depend on
 //! // `netlink-packet-route`.
@@ -182,7 +177,7 @@
 //! async fn main() -> Result<(), String> {
 //!     // Create the netlink socket. Here, we won't use the channel that
 //!     // receives unsolicited messages.
-//!     let (conn, mut handle, _) = new_connection(NETLINK_ROUTE)
+//!     let (conn, mut handle, _) = new_connection(libc::NETLINK_ROUTE as isize)
 //!         .map_err(|e| format!("Failed to create a new netlink connection: {}", e))?;
 //!
 //!     // Spawn the `Connection` in the background
@@ -252,10 +247,9 @@ use std::{
 
 pub(crate) use netlink_packet_core as packet;
 
-/// Netlink socket types, addresses and protocol constants re-exported from
-/// `netlink-sys`.
+/// Netlink socket types and addresses re-exported from `netlink-sys`.
 pub mod sys {
-    pub use netlink_sys::{AsyncSocket, AsyncSocketExt, SocketAddr, protocols};
+    pub use netlink_sys::{AsyncSocket, AsyncSocketExt, SocketAddr};
 
     #[cfg(feature = "tokio_socket")]
     pub use netlink_sys::TokioSocket;
@@ -270,7 +264,8 @@ pub mod sys {
 /// response to a request made by the `Connection`). `Connection<T>` wraps a
 /// Netlink socket and implements the Netlink protocol.
 ///
-/// `protocol` must be one of the [`crate::sys::protocols`] constants.
+/// `protocol` must be a netlink protocol number, such as
+/// `libc::NETLINK_ROUTE`.
 ///
 /// `T` is the type of netlink messages used for this protocol. For instance, if
 /// you're using the `NETLINK_AUDIT` protocol with the `netlink-packet-audit`

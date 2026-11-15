@@ -111,6 +111,14 @@ where
         self.forward_ack = value;
     }
 
+    /// Get a reference to the underlying netlink socket.
+    ///
+    /// This can be used to configure the socket, for instance to bind it or
+    /// join multicast groups, before spawning the [`Connection`] future.
+    pub fn socket_ref(&self) -> &S {
+        self.socket.get_ref()
+    }
+
     /// Get a mutable reference to the underlying netlink socket.
     ///
     /// This can be used to configure the socket, for instance to bind it or
@@ -459,6 +467,7 @@ mod tests {
     };
 
     use futures_util::StreamExt;
+    use libc::NETLINK_ROUTE as NETLINK_ROUTE_RAW;
     use netlink_packet_core::{
         DecodeError, Emitable, EncodeError, EncodeErrorKind, NLM_F_ACK,
         NLM_F_REQUEST, NetlinkDeserializable, NetlinkHeader, NetlinkMessage,
@@ -470,8 +479,10 @@ mod tests {
     use crate::{
         NetlinkMessageCodec, NetlinkProtoError, from_socket_with_codec,
         new_connection,
-        sys::{AsyncSocket, SocketAddr, TokioSocket, protocols::NETLINK_ROUTE},
+        sys::{AsyncSocket, SocketAddr, TokioSocket},
     };
+
+    const NETLINK_ROUTE: isize = NETLINK_ROUTE_RAW as isize;
 
     #[derive(Debug)]
     struct Fake;
@@ -557,10 +568,6 @@ mod tests {
             self.inner.socket_ref()
         }
 
-        fn socket_mut(&mut self) -> &mut Socket {
-            self.inner.socket_mut()
-        }
-
         fn new(protocol: isize) -> io::Result<Self> {
             Ok(Self {
                 inner: TokioSocket::new(protocol)?,
@@ -591,19 +598,19 @@ mod tests {
             }
         }
 
-        fn poll_recv<B>(
+        fn poll_recv(
             &self,
             _cx: &mut Context<'_>,
-            _buf: &mut B,
-        ) -> Poll<io::Result<()>> {
+            _buf: &mut [u8],
+        ) -> Poll<io::Result<usize>> {
             Poll::Pending
         }
 
-        fn poll_recv_from<B>(
+        fn poll_recv_from(
             &self,
             _cx: &mut Context<'_>,
-            _buf: &mut B,
-        ) -> Poll<io::Result<SocketAddr>> {
+            _buf: &mut [u8],
+        ) -> Poll<io::Result<(usize, SocketAddr)>> {
             match self.failure {
                 Failure::Receive => Poll::Ready(Err(io::Error::new(
                     io::ErrorKind::ConnectionReset,
