@@ -2,6 +2,7 @@
 
 use std::{
     fmt::Debug,
+    io,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -125,6 +126,44 @@ where
     /// join multicast groups, before spawning the [`Connection`] future.
     pub fn socket_mut(&mut self) -> &mut S {
         self.socket.get_mut()
+    }
+
+    /// Enable or disable `NETLINK_EXT_ACK` on the underlying socket.
+    ///
+    /// When enabled, the kernel appends extended ACK attributes to
+    /// `NLMSG_ERROR` replies. `netlink-packet-core` parses them into
+    /// [`netlink_packet_core::ErrorMessage::extended_ack`].
+    pub fn set_ext_ack(&self, value: bool) -> io::Result<()> {
+        self.socket_ref().socket_ref().set_ext_ack(value)
+    }
+
+    /// Return whether `NETLINK_EXT_ACK` is enabled on the underlying socket.
+    pub fn get_ext_ack(&self) -> io::Result<bool> {
+        self.socket_ref().socket_ref().get_ext_ack()
+    }
+
+    /// Enable or disable `NETLINK_CAP_ACK` on the underlying socket.
+    ///
+    /// When enabled, the kernel trims the echoed original request from
+    /// `NLMSG_ERROR` replies, keeping only its netlink header.
+    pub fn set_cap_ack(&self, value: bool) -> io::Result<()> {
+        self.socket_ref().socket_ref().set_cap_ack(value)
+    }
+
+    /// Return whether `NETLINK_CAP_ACK` is enabled on the underlying socket.
+    pub fn get_cap_ack(&self) -> io::Result<bool> {
+        self.socket_ref().socket_ref().get_cap_ack()
+    }
+
+    /// Enable or disable `NETLINK_GET_STRICT_CHK` on the underlying socket.
+    ///
+    /// When enabled, the kernel rejects unsupported attributes of route
+    /// requests instead of silently ignoring them. By default,
+    /// `NETLINK_GET_STRICT_CHK` is not enabled.
+    pub fn set_netlink_get_strict_chk(&self, value: bool) -> io::Result<()> {
+        self.socket_ref()
+            .socket_ref()
+            .set_netlink_get_strict_chk(value)
     }
 
     pub(crate) fn poll_send_messages(
@@ -634,6 +673,23 @@ mod tests {
         let join_handle = tokio::spawn(conn);
         time::sleep(time::Duration::from_millis(200)).await;
         assert!(join_handle.is_finished());
+    }
+
+    #[tokio::test]
+    async fn configures_socket_options() {
+        let (conn, _, _) = new_connection::<Fake>(NETLINK_ROUTE).unwrap();
+
+        conn.set_ext_ack(true).unwrap();
+        assert!(conn.get_ext_ack().unwrap());
+        conn.set_ext_ack(false).unwrap();
+        assert!(!conn.get_ext_ack().unwrap());
+
+        conn.set_cap_ack(true).unwrap();
+        assert!(conn.get_cap_ack().unwrap());
+        conn.set_cap_ack(false).unwrap();
+        assert!(!conn.get_cap_ack().unwrap());
+
+        conn.set_netlink_get_strict_chk(true).unwrap();
     }
 
     #[tokio::test]
