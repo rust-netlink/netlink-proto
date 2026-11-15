@@ -35,6 +35,7 @@ pub struct NetlinkFramed<T, S, C> {
     codec: PhantomData<fn(C) -> C>,    // invariant
     reader: Vec<u8>,
     reader_offset: usize,
+    reader_end: usize,
     writer: Vec<u8>,
     in_addr: SocketAddr,
     out_addr: SocketAddr,
@@ -58,11 +59,12 @@ where
             in_addr,
             reader,
             reader_offset,
+            reader_end,
             ..
         } = Pin::get_mut(self);
 
         loop {
-            match C::decode::<T>(&mut reader[*reader_offset..]) {
+            match C::decode::<T>(&mut reader[*reader_offset..*reader_end]) {
                 Ok(Some((item, consumed))) => {
                     *reader_offset += consumed;
                     return Poll::Ready(Some(Ok((item, *in_addr))));
@@ -73,20 +75,20 @@ where
                 }
             }
 
-            reader.clear();
             *reader_offset = 0;
-            reader.reserve(INITIAL_READER_CAPACITY);
+            *reader_end = 0;
 
-            *in_addr = match ready!(socket.poll_recv_from(cx, reader)) {
-                Ok(addr) => addr,
-                // When receiving messages in multicast mode (i.e. we subscribed
-                // to notifications), the kernel will not wait
+            let (len, addr) = match ready!(socket.poll_recv_from(cx, reader)) {
+                Ok(result) => result,
+                // When receiving messages in multicast mode (i.e. we
+                // subscribed to notifications), the kernel will not wait
                 // for us to read datagrams before sending more.
-                // The receive buffer has a finite size, so once it is full (no
-                // more message can fit in), new messages will be dropped and
-                // recv calls will return `ENOBUFS`.
-                // This needs to be handled for applications to resynchronize
-                // with the contents of the kernel if necessary.
+                // The receive buffer has a finite size, so once it is full
+                // (no more message can fit in), new messages will be
+                // dropped and recv calls will return `ENOBUFS`.
+                // This needs to be handled for applications to
+                // resynchronize with the contents of the kernel if
+                // necessary.
                 // We don't need to do anything special:
                 // - contents of the reader is still valid because we won't have
                 //   partial messages in there anyways (large enough buffer)
@@ -108,6 +110,9 @@ where
                     return Poll::Ready(Some(Err(NetlinkProtoError::from(e))));
                 }
             };
+
+            *reader_end = len;
+            *in_addr = addr;
         }
     }
 }
@@ -233,8 +238,9 @@ impl<T, S, C> NetlinkFramed<T, S, C> {
             codec: PhantomData,
             out_addr: SocketAddr::new(0, 0),
             in_addr: SocketAddr::new(0, 0),
-            reader: Vec::with_capacity(INITIAL_READER_CAPACITY),
+            reader: vec![0; INITIAL_READER_CAPACITY],
             reader_offset: 0,
+            reader_end: 0,
             writer: Vec::with_capacity(INITIAL_WRITER_CAPACITY),
             flushed: true,
         }
