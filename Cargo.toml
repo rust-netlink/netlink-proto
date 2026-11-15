@@ -15,7 +15,7 @@ description = "async netlink protocol"
 log = "0.4.8"
 futures-channel = "0.3"
 futures-util = { version = "0.3", features = ["sink"] }
-netlink-packet-core = "1.0.0-rc1"
+netlink-packet-core = "1.0.0-rc2"
 netlink-sys = { default-features = false, version = "1.0.0-rc2" }
 
 [features]
